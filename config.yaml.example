@@ -1,0 +1,28 @@
+# Atlas CLI Configuration
+# Place this file at $XDG_CONFIG_HOME/atlas/config.yaml
+# or ~/.config/atlas/config.yaml
+
+# Global username (can be overridden per service)
+username: your.username
+
+# Bitbucket configuration
+bitbucket:
+  server: https://git.yourdomain.com
+  token: your-bitbucket-api-token
+  default_project: PROJECT     # Default project for Bitbucket
+  default_repo: REPO           # Default repository name
+  # username: optional-different-username
+
+# JIRA configuration
+jira:
+  server: https://jira.yourdomain.com
+  token: your-jira-api-token  # Use Bearer token/PAT for JIRA
+  default_project: MYPROJ       # Default project for issue commands
+  # username: optional-different-username
+
+# Confluence configuration
+confluence:
+  server: https://confluence.yourdomain.com
+  token: your-confluence-api-token
+  default_space: SPACE  # Default space for page commands
+  # username: optional-different-username
