@@ -9,12 +9,12 @@ GitHub CLI-inspired tool for Bitbucket, JIRA, and Confluence. Born from pure fru
 ### Quick Install (Go 1.22+)
 ```sh
 # Installs as 'atl' directly
-go install github.com/lroolle/atlas-cli/cmd/atl@latest
+go install github.com/lroolle/atlas-cli/cmd/atl@main
 ```
 
 ### Alternative: Install with alias
 ```sh
-go install github.com/lroolle/atlas-cli@latest
+go install github.com/lroolle/atlas-cli@main
 ln -sf ~/go/bin/atlas-cli ~/go/bin/atl
 ```
 
