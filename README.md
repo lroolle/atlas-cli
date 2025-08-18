@@ -4,11 +4,31 @@
 
 GitHub CLI-inspired tool for Bitbucket, JIRA, and Confluence. Born from pure frustration: we needed Claude Code to work with Atlassian's bloated enterprise crap. Because if AI has to suffer through their APIs, at least we can make it less idiotic.
 
-## Quick Start
+## Installation
 
+### Quick Install (Go 1.22+)
 ```sh
+# Installs as 'atl' directly
+go install github.com/lroolle/atlas-cli/cmd/atl@latest
+```
+
+### Alternative: Install with alias
+```sh
+go install github.com/lroolle/atlas-cli@latest
+ln -sf ~/go/bin/atlas-cli ~/go/bin/atl
+```
+
+### Build from source
+```sh
+git clone https://github.com/lroolle/atlas-cli.git
+cd atlas-cli
 make build
-./atl init
+make install  # installs to ~/go/bin/atl
+```
+
+### Setup
+```sh
+atl init
 # Edit ~/.config/atlas/config.yaml with your tokens
 ```
 
