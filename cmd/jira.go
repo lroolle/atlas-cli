@@ -130,6 +130,18 @@ var issueViewCmd = &cobra.Command{
 			fmt.Printf("\nDescription:\n%s\n", issue.Fields.Description)
 		}
 		
+		if len(issue.Fields.IssueLinks) > 0 {
+			fmt.Printf("\nIssue Links:\n")
+			for _, link := range issue.Fields.IssueLinks {
+				if link.OutwardIssue != nil {
+					fmt.Printf("  %s %s (%s)\n", link.Type.Outward, link.OutwardIssue.Key, link.OutwardIssue.Fields.Summary)
+				}
+				if link.InwardIssue != nil {
+					fmt.Printf("  %s %s (%s)\n", link.Type.Inward, link.InwardIssue.Key, link.InwardIssue.Fields.Summary)
+				}
+			}
+		}
+		
 		return nil
 	},
 }
@@ -195,12 +207,101 @@ var issueCommentCmd = &cobra.Command{
 	},
 }
 
+var issueCommentsCmd = &cobra.Command{
+	Use:   "comments [issue-key]",
+	Short: "Show comments for a JIRA issue",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		client := getJiraClient()
+		comments, err := client.GetComments(args[0])
+		if err != nil {
+			return err
+		}
+		
+		if len(comments) == 0 {
+			fmt.Printf("No comments found for %s\n", args[0])
+			return nil
+		}
+		
+		fmt.Printf("Comments for %s:\n\n", args[0])
+		for i, comment := range comments {
+			fmt.Printf("--- Comment %d ---\n", i+1)
+			fmt.Printf("Author: %s\n", comment.Author.DisplayName)
+			fmt.Printf("Created: %s\n", comment.Created)
+			fmt.Printf("Body:\n%s\n\n", comment.Body)
+		}
+		
+		return nil
+	},
+}
+
+var issuePrsCmd = &cobra.Command{
+	Use:   "prs [issue-key]",
+	Short: "Show pull requests for a JIRA issue",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		client := getJiraClient()
+		
+		// First get the issue to get its ID
+		issue, err := client.GetIssue(args[0])
+		if err != nil {
+			return err
+		}
+		
+		devInfo, err := client.GetDevelopmentInfo(issue.ID)
+		if err != nil {
+			return err
+		}
+		
+		// Count total PRs
+		totalPRs := 0
+		for _, detail := range devInfo.Detail {
+			totalPRs += len(detail.PullRequests)
+		}
+		
+		if totalPRs == 0 {
+			fmt.Printf("No pull requests found for %s\n", args[0])
+			return nil
+		}
+		
+		fmt.Printf("Pull Requests for %s (%d total):\n\n", args[0], totalPRs)
+		
+		for _, detail := range devInfo.Detail {
+			for _, pr := range detail.PullRequests {
+				fmt.Printf("PR %s: %s\n", pr.ID, pr.Name)
+				fmt.Printf("URL: %s\n", pr.URL)
+				fmt.Printf("Status: %s\n", pr.Status)
+				fmt.Printf("Author: %s\n", pr.Author.Name)
+				fmt.Printf("Last Updated: %s\n", pr.LastUpdate)
+				fmt.Printf("Source: %s → %s\n", pr.Source.Branch, pr.Destination.Branch)
+				fmt.Printf("Repository: %s\n", pr.Source.Repository.Name)
+				
+				if len(pr.Reviewers) > 0 {
+					fmt.Printf("Reviewers:\n")
+					for _, reviewer := range pr.Reviewers {
+						status := "❌"
+						if reviewer.Approved {
+							status = "✅"
+						}
+						fmt.Printf("  %s %s\n", status, reviewer.Name)
+					}
+				}
+				fmt.Println("---")
+			}
+		}
+		
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(issueCmd)
 	issueCmd.AddCommand(issueListCmd)
 	issueCmd.AddCommand(issueViewCmd)
 	issueCmd.AddCommand(issueTransitionCmd)
 	issueCmd.AddCommand(issueCommentCmd)
+	issueCmd.AddCommand(issueCommentsCmd)
+	issueCmd.AddCommand(issuePrsCmd)
 	
 	issueListCmd.Flags().String("assignee", "", "Filter by assignee (use 'me' for current user)")
 	issueListCmd.Flags().String("project", "", "Filter by project")

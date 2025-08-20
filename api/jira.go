@@ -37,6 +37,8 @@ type IssueFields struct {
 	Updated     string       `json:"updated"`
 	Resolution  *Resolution  `json:"resolution"`
 	Project     JiraProject  `json:"project"`
+	IssueLinks  []IssueLink  `json:"issuelinks,omitempty"`
+	Parent      *Issue       `json:"parent,omitempty"`
 }
 
 type JiraProject struct {
@@ -76,6 +78,20 @@ type Resolution struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+}
+
+type IssueLink struct {
+	ID           string    `json:"id"`
+	Type         LinkType  `json:"type"`
+	OutwardIssue *Issue    `json:"outwardIssue,omitempty"`
+	InwardIssue  *Issue    `json:"inwardIssue,omitempty"`
+}
+
+type LinkType struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Inward  string `json:"inward"`
+	Outward string `json:"outward"`
 }
 
 type Transition struct {
@@ -154,6 +170,98 @@ func (c *JiraClient) AddComment(issueKey string, comment string) error {
 	}
 	
 	return c.Post(path, body, nil)
+}
+
+type JiraComment struct {
+	ID      string   `json:"id"`
+	Body    string   `json:"body"`
+	Author  JiraUser `json:"author"`
+	Created string   `json:"created"`
+	Updated string   `json:"updated"`
+}
+
+type CommentsResponse struct {
+	StartAt    int           `json:"startAt"`
+	MaxResults int           `json:"maxResults"`
+	Total      int           `json:"total"`
+	Comments   []JiraComment `json:"comments"`
+}
+
+func (c *JiraClient) GetComments(issueKey string) ([]JiraComment, error) {
+	path := fmt.Sprintf("/rest/api/2/issue/%s/comment", issueKey)
+	
+	var response CommentsResponse
+	err := c.Get(path, nil, &response)
+	if err != nil {
+		return nil, err
+	}
+	
+	return response.Comments, nil
+}
+
+type DevelopmentInfo struct {
+	Detail []struct {
+		PullRequests []struct {
+			ID           string `json:"id"`
+			Name         string `json:"name"`
+			URL          string `json:"url"`
+			Status       string `json:"status"`
+			LastUpdate   string `json:"lastUpdate"`
+			CommentCount int    `json:"commentCount"`
+			Author       struct {
+				Name   string `json:"name"`
+				Avatar string `json:"avatar"`
+			} `json:"author"`
+			Source struct {
+				Branch     string `json:"branch"`
+				Repository struct {
+					Name string `json:"name"`
+					URL  string `json:"url"`
+				} `json:"repository"`
+			} `json:"source"`
+			Destination struct {
+				Branch     string `json:"branch"`
+				Repository struct {
+					Name string `json:"name"`
+					URL  string `json:"url"`
+				} `json:"repository"`
+			} `json:"destination"`
+			Reviewers []struct {
+				Name     string `json:"name"`
+				Avatar   string `json:"avatar"`
+				Approved bool   `json:"approved"`
+			} `json:"reviewers"`
+		} `json:"pullRequests"`
+		Repositories []interface{} `json:"repositories"`
+	} `json:"detail"`
+	Errors []interface{} `json:"errors"`
+}
+
+func (c *JiraClient) GetDevelopmentInfo(issueKey string) (*DevelopmentInfo, error) {
+	// Use the internal dev-status API endpoint - works for both Cloud and Data Center
+	// Note: This is an internal API and may not be stable, but it's what JIRA uses internally
+	path := fmt.Sprintf("/rest/dev-status/1.0/issue/detail?issueId=%s&applicationType=stash&dataType=pullrequest", issueKey)
+	
+	var devInfo DevelopmentInfo
+	err := c.Get(path, nil, &devInfo)
+	if err != nil {
+		return nil, err
+	}
+	
+	return &devInfo, nil
+}
+
+func (c *JiraClient) GetRepositoryInfo(issueKey string) (*DevelopmentInfo, error) {
+	// Get repository/commit information 
+	path := fmt.Sprintf("/rest/dev-status/1.0/issue/detail?issueId=%s&applicationType=stash&dataType=repository", issueKey)
+	
+	var devInfo DevelopmentInfo
+	err := c.Get(path, nil, &devInfo)
+	if err != nil {
+		return nil, err
+	}
+	
+	return &devInfo, nil
 }
 
 func (c *JiraClient) UpdateIssue(issueKey string, fields map[string]interface{}) error {
