@@ -37,7 +37,7 @@ atl init
 ```sh
 # Pull Requests (no more pagination hell)
 atl pr list                  # List PRs
-atl pr view 123              # View PR  
+atl pr view 123              # View PR
 atl pr merge 123             # Merge PR
 
 # JIRA Issues (surprisingly bearable)
@@ -62,7 +62,7 @@ bitbucket:
   default_repo: repo
 
 jira:
-  server: https://jira.yourdomain.com  
+  server: https://jira.yourdomain.com
   token: your-bearer-token
   default_project: PROJ
 
