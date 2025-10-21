@@ -125,3 +125,14 @@ func (c *Client) Put(path string, body interface{}, result interface{}) error {
 
 	return nil
 }
+
+// GetRaw downloads raw binary data from a path
+func (c *Client) GetRaw(path string) ([]byte, error) {
+	resp, err := c.doRequest("GET", path, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return io.ReadAll(resp.Body)
+}
