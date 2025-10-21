@@ -82,18 +82,18 @@ type ConfluencePagedResponse struct {
 func (c *ConfluenceClient) GetSpaces(limit int) ([]Space, error) {
 	params := url.Values{}
 	params.Set("limit", fmt.Sprintf("%d", limit))
-	
+
 	path := "/rest/api/space"
-	
+
 	var response struct {
 		Results []Space `json:"results"`
 	}
-	
+
 	err := c.Get(path, params, &response)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return response.Results, nil
 }
 
@@ -104,18 +104,18 @@ func (c *ConfluenceClient) GetContent(spaceKey string, contentType string, limit
 	params.Set("type", contentType)
 	params.Set("limit", fmt.Sprintf("%d", limit))
 	params.Set("expand", "body.view,version")
-	
+
 	path := "/rest/api/content"
-	
+
 	var response struct {
 		Results []Content `json:"results"`
 	}
-	
+
 	err := c.Get(path, params, &response)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return response.Results, nil
 }
 
@@ -123,15 +123,15 @@ func (c *ConfluenceClient) GetContent(spaceKey string, contentType string, limit
 func (c *ConfluenceClient) GetPage(pageID string) (*Content, error) {
 	params := url.Values{}
 	params.Set("expand", "body.storage,body.view,version,space")
-	
+
 	path := fmt.Sprintf("/rest/api/content/%s", pageID)
-	
+
 	var content Content
 	err := c.Get(path, params, &content)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &content, nil
 }
 
@@ -141,32 +141,32 @@ func (c *ConfluenceClient) SearchContent(query string, limit int) ([]Content, er
 	params.Set("cql", query)
 	params.Set("limit", fmt.Sprintf("%d", limit))
 	params.Set("expand", "content.version,content.space")
-	
+
 	path := "/rest/api/content/search"
-	
+
 	var response struct {
 		Results []struct {
 			Content Content `json:"content"`
 		} `json:"results"`
 	}
-	
+
 	err := c.Get(path, params, &response)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	contents := make([]Content, len(response.Results))
 	for i, r := range response.Results {
 		contents[i] = r.Content
 	}
-	
+
 	return contents, nil
 }
 
 // CreatePage creates a new page
 func (c *ConfluenceClient) CreatePage(spaceKey, title, content string, parentID string) (*Content, error) {
 	path := "/rest/api/content"
-	
+
 	body := map[string]interface{}{
 		"type":  "page",
 		"title": title,
@@ -180,26 +180,26 @@ func (c *ConfluenceClient) CreatePage(spaceKey, title, content string, parentID 
 			},
 		},
 	}
-	
+
 	if parentID != "" {
 		body["ancestors"] = []map[string]string{
 			{"id": parentID},
 		}
 	}
-	
+
 	var page Content
 	err := c.Post(path, body, &page)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &page, nil
 }
 
 // UpdatePage updates an existing page
 func (c *ConfluenceClient) UpdatePage(pageID string, title, content string, version int) (*Content, error) {
 	path := fmt.Sprintf("/rest/api/content/%s", pageID)
-	
+
 	body := map[string]interface{}{
 		"type":  "page",
 		"title": title,
@@ -213,12 +213,43 @@ func (c *ConfluenceClient) UpdatePage(pageID string, title, content string, vers
 			"number": version + 1,
 		},
 	}
-	
+
 	var page Content
 	err := c.Put(path, body, &page)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &page, nil
+}
+
+// GetAttachment downloads an attachment from a page
+func (c *ConfluenceClient) GetAttachment(pageID, filename string) ([]byte, error) {
+	params := url.Values{}
+	params.Set("filename", filename)
+	params.Set("expand", "version")
+
+	path := fmt.Sprintf("/rest/api/content/%s/child/attachment", pageID)
+
+	var response struct {
+		Results []struct {
+			ID    string `json:"id"`
+			Title string `json:"title"`
+			Links struct {
+				Download string `json:"download"`
+			} `json:"_links"`
+		} `json:"results"`
+	}
+
+	err := c.Get(path, params, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(response.Results) == 0 {
+		return nil, fmt.Errorf("attachment not found: %s", filename)
+	}
+
+	downloadPath := response.Results[0].Links.Download
+	return c.GetRaw(downloadPath)
 }
