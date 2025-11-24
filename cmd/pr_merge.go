@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/lroolle/atlas-cli/internal/cmdutil"
 	"github.com/spf13/cobra"
 )
 
@@ -13,21 +14,25 @@ var prMergeCmd = &cobra.Command{
 	Short: "Merge a pull request",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
 		parts := strings.Split(args[0], "/")
 		if len(parts) != 2 {
 			return fmt.Errorf("invalid format: use PROJECT/REPO")
 		}
-		
+
 		prID, err := strconv.Atoi(args[1])
 		if err != nil {
 			return fmt.Errorf("invalid PR ID: %v", err)
 		}
-		
-		client := getClient()
+
+		client, err := getClient()
+		if err != nil {
+			return err
+		}
 		project, repo := parts[0], parts[1]
 		
 		// Get PR details first
-		pr, err := client.GetPullRequest(project, repo, prID)
+		pr, err := client.GetPullRequest(ctx, project, repo, prID)
 		if err != nil {
 			return err
 		}
@@ -35,9 +40,9 @@ var prMergeCmd = &cobra.Command{
 		if pr.State != "OPEN" {
 			return fmt.Errorf("PR #%d is not open (state: %s)", prID, pr.State)
 		}
-		
-		// Check if can merge
-		canMerge, _ := cmd.Flags().GetBool("force")
+
+		canMerge, err := cmd.Flags().GetBool("force")
+		cmdutil.ExitIfError(err)
 		if !canMerge {
 			// Check for approvals
 			hasApproval := false
@@ -54,7 +59,7 @@ var prMergeCmd = &cobra.Command{
 		}
 		
 		// Merge the PR
-		if err := client.MergePullRequest(project, repo, prID, pr.Version); err != nil {
+		if err := client.MergePullRequest(ctx, project, repo, prID, pr.Version); err != nil {
 			return fmt.Errorf("merging PR: %w", err)
 		}
 		

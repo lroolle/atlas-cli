@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/url"
@@ -114,7 +115,7 @@ type Commit struct {
 	} `json:"parents"`
 }
 
-func (c *BitbucketClient) ListPullRequests(project, repo string, state string, limit int) ([]PullRequest, error) {
+func (c *BitbucketClient) ListPullRequests(ctx context.Context, project, repo string, state string, limit int) ([]PullRequest, error) {
 	params := url.Values{}
 	if state != "" {
 		params.Set("state", state)
@@ -122,95 +123,95 @@ func (c *BitbucketClient) ListPullRequests(project, repo string, state string, l
 	params.Set("limit", strconv.Itoa(limit))
 
 	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests", project, repo)
-	
+
 	var response struct {
 		Values []PullRequest `json:"values"`
 	}
-	
-	err := c.Get(path, params, &response)
+
+	err := c.Get(ctx, path, params, &response)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return response.Values, nil
 }
 
-func (c *BitbucketClient) GetPullRequest(project, repo string, prID int) (*PullRequest, error) {
+func (c *BitbucketClient) GetPullRequest(ctx context.Context, project, repo string, prID int) (*PullRequest, error) {
 	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests/%d", project, repo, prID)
-	
+
 	var pr PullRequest
-	err := c.Get(path, nil, &pr)
+	err := c.Get(ctx, path, nil, &pr)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &pr, nil
 }
 
-func (c *BitbucketClient) GetPullRequestDiff(project, repo string, prID int) (string, error) {
+func (c *BitbucketClient) GetPullRequestDiff(ctx context.Context, project, repo string, prID int) (string, error) {
 	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests/%d/diff", project, repo, prID)
-	
-	resp, err := c.doRequest("GET", path, nil)
+
+	resp, err := c.doRequest(ctx, "GET", path, nil)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
-	
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
-	
+
 	return string(body), nil
 }
 
-func (c *BitbucketClient) AddPullRequestComment(project, repo string, prID int, text string) (*Comment, error) {
+func (c *BitbucketClient) AddPullRequestComment(ctx context.Context, project, repo string, prID int, text string) (*Comment, error) {
 	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests/%d/comments", project, repo, prID)
-	
+
 	body := map[string]string{
 		"text": text,
 	}
-	
+
 	var comment Comment
-	err := c.Post(path, body, &comment)
+	err := c.Post(ctx, path, body, &comment)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &comment, nil
 }
 
-func (c *BitbucketClient) ListCommits(project, repo string, limit int) ([]Commit, error) {
+func (c *BitbucketClient) ListCommits(ctx context.Context, project, repo string, limit int) ([]Commit, error) {
 	params := url.Values{}
 	params.Set("limit", strconv.Itoa(limit))
-	
+
 	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/commits", project, repo)
-	
+
 	var response struct {
 		Values []Commit `json:"values"`
 	}
-	
-	err := c.Get(path, params, &response)
+
+	err := c.Get(ctx, path, params, &response)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return response.Values, nil
 }
 
-func (c *BitbucketClient) MergePullRequest(project, repo string, prID int, version int) error {
+func (c *BitbucketClient) MergePullRequest(ctx context.Context, project, repo string, prID int, version int) error {
 	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests/%d/merge", project, repo, prID)
-	
+
 	body := map[string]interface{}{
 		"version": version,
 	}
-	
-	return c.Post(path, body, nil)
+
+	return c.Post(ctx, path, body, nil)
 }
 
-func (c *BitbucketClient) CreatePullRequest(project, repo string, title, description, fromBranch, toBranch string) (*PullRequest, error) {
+func (c *BitbucketClient) CreatePullRequest(ctx context.Context, project, repo string, title, description, fromBranch, toBranch string) (*PullRequest, error) {
 	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests", project, repo)
-	
+
 	body := map[string]interface{}{
 		"title":       title,
 		"description": description,
@@ -233,12 +234,12 @@ func (c *BitbucketClient) CreatePullRequest(project, repo string, title, descrip
 			},
 		},
 	}
-	
+
 	var pr PullRequest
-	err := c.Post(path, body, &pr)
+	err := c.Post(ctx, path, body, &pr)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &pr, nil
 }
