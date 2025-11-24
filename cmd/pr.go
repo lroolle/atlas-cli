@@ -266,7 +266,7 @@ func init() {
 func getClient() (*api.BitbucketClient, error) {
 	client, err := api.GetBitbucketClient()
 	if err != nil {
-		return nil, fmt.Errorf("%w\nHint: Set credentials in config file under 'bitbucket' section", err)
+		return nil, fmt.Errorf("failed to get Bitbucket client: %w (hint: set credentials in config file under 'bitbucket' section)", err)
 	}
 	return client, nil
 }

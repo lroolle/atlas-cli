@@ -251,11 +251,9 @@ func downloadAndFixImages(ctx context.Context, client *api.ConfluenceClient, pag
 		return content, nil
 	}
 
-	outputDir := strings.TrimSuffix(outputFile, ".md")
-	if outputDir == outputFile {
-		outputDir = "."
-	}
-	imageDir := filepath.Join(outputDir, filepath.Base(outputDir)+"_images")
+	baseName := strings.TrimSuffix(filepath.Base(outputFile), filepath.Ext(outputFile))
+	outputDir := filepath.Dir(outputFile)
+	imageDir := filepath.Join(outputDir, baseName+"_images")
 
 	if err := os.MkdirAll(imageDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create image directory: %w", err)
@@ -535,7 +533,7 @@ func init() {
 func getConfluenceClient() (*api.ConfluenceClient, error) {
 	client, err := api.GetConfluenceClient()
 	if err != nil {
-		return nil, fmt.Errorf("%w\nHint: Set credentials in config file under 'confluence' section", err)
+		return nil, fmt.Errorf("failed to get Confluence client: %w (hint: set credentials in config file under 'confluence' section)", err)
 	}
 	return client, nil
 }
