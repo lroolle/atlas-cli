@@ -175,6 +175,9 @@ var pageViewCmd = &cobra.Command{
 			if outputFile == "" {
 				return fmt.Errorf("--with-images requires -o to specify output file")
 			}
+			if format != "markdown" && format != "md" {
+				return fmt.Errorf("--with-images only works with markdown format (current: %s)", format)
+			}
 			content, err = downloadAndFixImages(ctx, client, page, outputFile, content)
 			if err != nil {
 				return err
