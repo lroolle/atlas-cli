@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/lroolle/atlas-cli/api"
+	"github.com/lroolle/atlas-cli/internal/cmdutil"
 	"github.com/lroolle/atlas-cli/pkg/converter"
 	"github.com/lroolle/atlas-cli/pkg/extractor"
 	"github.com/spf13/cobra"
@@ -27,6 +29,7 @@ var pageListCmd = &cobra.Command{
 	Short: "List pages in a Confluence space",
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
 		var spaceKey string
 
 		if len(args) > 0 {
@@ -43,10 +46,12 @@ var pageListCmd = &cobra.Command{
 			return err
 		}
 
-		limit, _ := cmd.Flags().GetInt("limit")
-		contentType, _ := cmd.Flags().GetString("type")
+		limit, err := cmd.Flags().GetInt("limit")
+		cmdutil.ExitIfError(err)
+		contentType, err := cmd.Flags().GetString("type")
+		cmdutil.ExitIfError(err)
 
-		pages, err := client.GetContent(spaceKey, contentType, limit)
+		pages, err := client.GetContent(ctx, spaceKey, contentType, limit)
 		if err != nil {
 			return err
 		}
@@ -62,7 +67,7 @@ var pageListCmd = &cobra.Command{
 		for _, page := range pages {
 			fmt.Fprintf(w, "%s\t%s\t%s\tv%d\n",
 				page.ID,
-				truncate(page.Title, 50),
+				cmdutil.Truncate(page.Title, cmdutil.TitleTruncateNormal),
 				page.Status,
 				page.Version.Number,
 			)
@@ -77,6 +82,7 @@ var pageSearchCmd = &cobra.Command{
 	Short: "Search for Confluence pages",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
 		query := strings.Join(args, " ")
 
 		client, err := getConfluenceClient()
@@ -84,16 +90,17 @@ var pageSearchCmd = &cobra.Command{
 			return err
 		}
 
-		limit, _ := cmd.Flags().GetInt("limit")
-		space, _ := cmd.Flags().GetString("space")
+		limit, err := cmd.Flags().GetInt("limit")
+		cmdutil.ExitIfError(err)
+		space, err := cmd.Flags().GetString("space")
+		cmdutil.ExitIfError(err)
 
-		// Build CQL query
 		cql := query
 		if space != "" {
 			cql = fmt.Sprintf("space = %s AND (%s)", space, query)
 		}
 
-		pages, err := client.SearchContent(cql, limit)
+		pages, err := client.SearchContent(ctx, cql, limit)
 		if err != nil {
 			return err
 		}
@@ -110,7 +117,7 @@ var pageSearchCmd = &cobra.Command{
 			fmt.Fprintf(w, "%s\t%s\t%s\tv%d\n",
 				page.ID,
 				page.Space.Key,
-				truncate(page.Title, 50),
+				cmdutil.Truncate(page.Title, cmdutil.TitleTruncateNormal),
 				page.Version.Number,
 			)
 		}
@@ -124,18 +131,19 @@ var pageViewCmd = &cobra.Command{
 	Short: "View a Confluence page",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
 		client, err := getConfluenceClient()
 		if err != nil {
 			return err
 		}
 
-		page, err := client.GetPage(args[0])
+		page, err := client.GetPage(ctx, args[0])
 		if err != nil {
 			return err
 		}
 
-		// Info mode - show metadata only
-		infoMode, _ := cmd.Flags().GetBool("info")
+		infoMode, err := cmd.Flags().GetBool("info")
+		cmdutil.ExitIfError(err)
 		if infoMode {
 			fmt.Printf("Page: %s\n", page.Title)
 			fmt.Printf("Space: %s\n", page.Space.Key)
@@ -145,25 +153,29 @@ var pageViewCmd = &cobra.Command{
 			return nil
 		}
 
-		outputFile, _ := cmd.Flags().GetString("output")
-		format, _ := cmd.Flags().GetString("format")
+		outputFile, err := cmd.Flags().GetString("output")
+		cmdutil.ExitIfError(err)
+		format, err := cmd.Flags().GetString("format")
+		cmdutil.ExitIfError(err)
 
 		content, err := formatContent(page, format)
 		if err != nil {
 			return err
 		}
 
-		withTOC, _ := cmd.Flags().GetBool("with-toc")
+		withTOC, err := cmd.Flags().GetBool("with-toc")
+		cmdutil.ExitIfError(err)
 		if withTOC && format == "markdown" {
 			content = addTOC(page, content)
 		}
 
-		withImages, _ := cmd.Flags().GetBool("with-images")
+		withImages, err := cmd.Flags().GetBool("with-images")
+		cmdutil.ExitIfError(err)
 		if withImages {
 			if outputFile == "" {
 				return fmt.Errorf("--with-images requires -o to specify output file")
 			}
-			content, err = downloadAndFixImages(client, page, outputFile, content)
+			content, err = downloadAndFixImages(ctx, client, page, outputFile, content)
 			if err != nil {
 				return err
 			}
@@ -225,7 +237,7 @@ func addTOC(page *api.Content, content string) string {
 	return toc.String()
 }
 
-func downloadAndFixImages(client *api.ConfluenceClient, page *api.Content, outputFile string, content string) (string, error) {
+func downloadAndFixImages(ctx context.Context, client *api.ConfluenceClient, page *api.Content, outputFile string, content string) (string, error) {
 	htmlContent := page.Body.Storage.Value
 	if htmlContent == "" {
 		htmlContent = page.Body.View.Value
@@ -240,7 +252,7 @@ func downloadAndFixImages(client *api.ConfluenceClient, page *api.Content, outpu
 	if outputDir == outputFile {
 		outputDir = "."
 	}
-	imageDir := outputDir + "_images"
+	imageDir := filepath.Join(outputDir, filepath.Base(outputDir)+"_images")
 
 	if err := os.MkdirAll(imageDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create image directory: %w", err)
@@ -251,9 +263,9 @@ func downloadAndFixImages(client *api.ConfluenceClient, page *api.Content, outpu
 			continue
 		}
 
-		imagePath := fmt.Sprintf("%s/%s", imageDir, img.Filename)
+		imagePath := filepath.Join(imageDir, img.Filename)
 
-		data, err := client.GetAttachment(page.ID, img.Filename)
+		data, err := client.GetAttachment(ctx, page.ID, img.Filename)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to download %s: %v\n", img.Filename, err)
 			continue
@@ -267,11 +279,9 @@ func downloadAndFixImages(client *api.ConfluenceClient, page *api.Content, outpu
 		fmt.Printf("Downloaded: %s\n", imagePath)
 	}
 
-	// Fix all image references in content
-	// Replace patterns in markdown image syntax: ![...](path/to/image.png?params)
 	imageDirName := filepath.Base(imageDir)
 	for _, img := range images {
-		relPath := fmt.Sprintf("%s/%s", imageDirName, img.Filename)
+		relPath := filepath.Join(imageDirName, img.Filename)
 
 		pattern := regexp.MustCompile(`(!\[[^\]]*\]\()([^)]*` + regexp.QuoteMeta(img.Filename) + `[^)]*)(\))`)
 		content = pattern.ReplaceAllString(content, `${1}`+relPath+`${3}`)
@@ -280,18 +290,183 @@ func downloadAndFixImages(client *api.ConfluenceClient, page *api.Content, outpu
 	return content, nil
 }
 
-var spaceListCmd = &cobra.Command{
-	Use:   "spaces",
-	Short: "List Confluence spaces",
+var pageCreateCmd = &cobra.Command{
+	Use:   "create",
+	Short: "Create a new Confluence page",
+	Long:  `Create a new page in a Confluence space with specified title and content`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
 		client, err := getConfluenceClient()
 		if err != nil {
 			return err
 		}
 
-		limit, _ := cmd.Flags().GetInt("limit")
+		spaceKey, err := cmd.Flags().GetString("space")
+		cmdutil.ExitIfError(err)
+		if spaceKey == "" {
+			spaceKey = viper.GetString("confluence.default_space")
+			if spaceKey == "" {
+				return fmt.Errorf("space required: use --space or set confluence.default_space in config")
+			}
+		}
 
-		spaces, err := client.GetSpaces(limit)
+		title, err := cmd.Flags().GetString("title")
+		cmdutil.ExitIfError(err)
+		if title == "" {
+			return fmt.Errorf("--title is required")
+		}
+
+		content, err := cmd.Flags().GetString("content")
+		cmdutil.ExitIfError(err)
+		contentFile, err := cmd.Flags().GetString("content-file")
+		cmdutil.ExitIfError(err)
+
+		if content == "" && contentFile == "" {
+			return fmt.Errorf("either --content or --content-file is required")
+		}
+
+		if contentFile != "" {
+			data, err := os.ReadFile(contentFile)
+			if err != nil {
+				return fmt.Errorf("failed to read content file: %w", err)
+			}
+			content = string(data)
+		}
+
+		parentID, err := cmd.Flags().GetString("parent")
+		cmdutil.ExitIfError(err)
+
+		page, err := client.CreatePage(ctx, spaceKey, title, content, parentID)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("Page created successfully\n")
+		fmt.Printf("ID: %s\n", page.ID)
+		fmt.Printf("Title: %s\n", page.Title)
+		fmt.Printf("Space: %s\n", page.Space.Key)
+		if webUI, ok := page.Links["webui"]; ok {
+			fmt.Printf("URL: %s%s\n", viper.GetString("confluence.server"), webUI)
+		}
+
+		return nil
+	},
+}
+
+var pageEditCmd = &cobra.Command{
+	Use:   "edit [page-id]",
+	Short: "Edit an existing Confluence page",
+	Long:  `Update an existing page's title and/or content`,
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
+		client, err := getConfluenceClient()
+		if err != nil {
+			return err
+		}
+
+		pageID := args[0]
+
+		currentPage, err := client.GetPage(ctx, pageID)
+		if err != nil {
+			return fmt.Errorf("failed to fetch page: %w", err)
+		}
+
+		title, err := cmd.Flags().GetString("title")
+		cmdutil.ExitIfError(err)
+		if title == "" {
+			title = currentPage.Title
+		}
+
+		content, err := cmd.Flags().GetString("content")
+		cmdutil.ExitIfError(err)
+		contentFile, err := cmd.Flags().GetString("content-file")
+		cmdutil.ExitIfError(err)
+
+		if contentFile != "" {
+			data, err := os.ReadFile(contentFile)
+			if err != nil {
+				return fmt.Errorf("failed to read content file: %w", err)
+			}
+			content = string(data)
+		}
+
+		if content == "" {
+			content = currentPage.Body.Storage.Value
+		}
+
+		page, err := client.UpdatePage(ctx, pageID, title, content, currentPage.Version.Number)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("Page updated successfully\n")
+		fmt.Printf("ID: %s\n", page.ID)
+		fmt.Printf("Title: %s\n", page.Title)
+		fmt.Printf("Version: %d\n", page.Version.Number)
+		if webUI, ok := page.Links["webui"]; ok {
+			fmt.Printf("URL: %s%s\n", viper.GetString("confluence.server"), webUI)
+		}
+
+		return nil
+	},
+}
+
+var pageChildrenCmd = &cobra.Command{
+	Use:   "children [page-id]",
+	Short: "List child pages of a parent page",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
+		client, err := getConfluenceClient()
+		if err != nil {
+			return err
+		}
+
+		pageID := args[0]
+		limit, err := cmd.Flags().GetInt("limit")
+		cmdutil.ExitIfError(err)
+
+		children, err := client.GetChildPages(ctx, pageID, limit)
+		if err != nil {
+			return err
+		}
+
+		if len(children) == 0 {
+			fmt.Printf("No child pages found for page %s\n", pageID)
+			return nil
+		}
+
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		fmt.Fprintln(w, "ID\tTITLE\tSTATUS\tVERSION")
+
+		for _, page := range children {
+			fmt.Fprintf(w, "%s\t%s\t%s\tv%d\n",
+				page.ID,
+				cmdutil.Truncate(page.Title, cmdutil.TitleTruncateLong),
+				page.Status,
+				page.Version.Number,
+			)
+		}
+
+		return w.Flush()
+	},
+}
+
+var spaceListCmd = &cobra.Command{
+	Use:   "spaces",
+	Short: "List Confluence spaces",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
+		client, err := getConfluenceClient()
+		if err != nil {
+			return err
+		}
+
+		limit, err := cmd.Flags().GetInt("limit")
+		cmdutil.ExitIfError(err)
+
+		spaces, err := client.GetSpaces(ctx, limit)
 		if err != nil {
 			return err
 		}
@@ -307,7 +482,7 @@ var spaceListCmd = &cobra.Command{
 		for _, space := range spaces {
 			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
 				space.Key,
-				truncate(space.Name, 40),
+				cmdutil.Truncate(space.Name, cmdutil.TitleTruncateShort),
 				space.Type,
 				space.Status,
 			)
@@ -322,12 +497,15 @@ func init() {
 	pageCmd.AddCommand(pageListCmd)
 	pageCmd.AddCommand(pageSearchCmd)
 	pageCmd.AddCommand(pageViewCmd)
+	pageCmd.AddCommand(pageCreateCmd)
+	pageCmd.AddCommand(pageEditCmd)
+	pageCmd.AddCommand(pageChildrenCmd)
 	pageCmd.AddCommand(spaceListCmd)
 
-	pageListCmd.Flags().Int("limit", 25, "Maximum number of results")
+	pageListCmd.Flags().Int("limit", cmdutil.DefaultLimit, "Maximum number of results")
 	pageListCmd.Flags().String("type", "page", "Content type (page, blogpost)")
 
-	pageSearchCmd.Flags().Int("limit", 25, "Maximum number of results")
+	pageSearchCmd.Flags().Int("limit", cmdutil.DefaultLimit, "Maximum number of results")
 	pageSearchCmd.Flags().String("space", "", "Limit search to specific space")
 
 	pageViewCmd.Flags().StringP("output", "o", "", "Save output to file")
@@ -336,15 +514,25 @@ func init() {
 	pageViewCmd.Flags().Bool("with-images", false, "Download images and fix paths (requires -o)")
 	pageViewCmd.Flags().Bool("info", false, "Show metadata summary only")
 
-	spaceListCmd.Flags().Int("limit", 25, "Maximum number of results")
+	pageCreateCmd.Flags().StringP("space", "s", "", "Space key (uses default_space from config if not specified)")
+	pageCreateCmd.Flags().StringP("title", "t", "", "Page title (required)")
+	pageCreateCmd.Flags().StringP("content", "c", "", "Page content in Confluence storage format")
+	pageCreateCmd.Flags().StringP("content-file", "f", "", "File containing page content")
+	pageCreateCmd.Flags().StringP("parent", "p", "", "Parent page ID (optional)")
+
+	pageEditCmd.Flags().StringP("title", "t", "", "New page title (keeps current if not specified)")
+	pageEditCmd.Flags().StringP("content", "c", "", "New page content in Confluence storage format")
+	pageEditCmd.Flags().StringP("content-file", "f", "", "File containing new page content")
+
+	pageChildrenCmd.Flags().Int("limit", cmdutil.DefaultChildrenLimit, "Maximum number of child pages to retrieve")
+
+	spaceListCmd.Flags().Int("limit", cmdutil.DefaultLimit, "Maximum number of results")
 }
 
 func getConfluenceClient() (*api.ConfluenceClient, error) {
 	client, err := api.GetConfluenceClient()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		fmt.Fprintln(os.Stderr, "Set in config file under 'confluence' section")
-		os.Exit(1)
+		return nil, fmt.Errorf("%w\nHint: Set credentials in config file under 'confluence' section", err)
 	}
-	return client, err
+	return client, nil
 }

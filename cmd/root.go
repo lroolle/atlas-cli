@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -44,10 +45,10 @@ func initConfig() {
 				fmt.Println(err)
 				os.Exit(1)
 			}
-			configDir = home + "/.config"
+			configDir = filepath.Join(home, ".config")
 		}
 
-		atlasConfigDir := configDir + "/atlas"
+		atlasConfigDir := filepath.Join(configDir, "atlas")
 		viper.AddConfigPath(atlasConfigDir)
 		viper.AddConfigPath(".")
 		viper.SetConfigName("config")
