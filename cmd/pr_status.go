@@ -95,7 +95,7 @@ func getReviewStatus(pr api.PullRequest) string {
 	}
 
 	if needsWork > 0 {
-		return fmt.Sprintf("❌ Changes requested")
+		return "❌ Changes requested"
 	}
 	if approved > 0 && pending == 0 {
 		return fmt.Sprintf("✓ Approved by %d", approved)
