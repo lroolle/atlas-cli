@@ -64,8 +64,8 @@ var prListCmd = &cobra.Command{
 			var filtered []api.PullRequest
 			for _, pr := range prs {
 				if author == "@me" && pr.Author.User.Name == client.Username ||
-				   strings.Contains(strings.ToLower(pr.Author.User.Name), strings.ToLower(author)) ||
-				   strings.Contains(strings.ToLower(pr.Author.User.DisplayName), strings.ToLower(author)) {
+					strings.Contains(strings.ToLower(pr.Author.User.Name), strings.ToLower(author)) ||
+					strings.Contains(strings.ToLower(pr.Author.User.DisplayName), strings.ToLower(author)) {
 					filtered = append(filtered, pr)
 				}
 			}

@@ -12,47 +12,20 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
-      
-      - name: Build binaries
-        run: |
-          # Linux
-          GOOS=linux GOARCH=amd64 go build -o atl-linux-amd64 ./cmd/atl
-          GOOS=linux GOARCH=arm64 go build -o atl-linux-arm64 ./cmd/atl
-          
-          # macOS
-          GOOS=darwin GOARCH=amd64 go build -o atl-darwin-amd64 ./cmd/atl
-          GOOS=darwin GOARCH=arm64 go build -o atl-darwin-arm64 ./cmd/atl
-          
-          # Windows
-          GOOS=windows GOARCH=amd64 go build -o atl-windows-amd64.exe ./cmd/atl
-      
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+          go-version-file: 'go.mod'
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
         with:
-          files: |
-            atl-linux-amd64
-            atl-linux-arm64
-            atl-darwin-amd64
-            atl-darwin-arm64
-            atl-windows-amd64.exe
-          body: |
-            ## Installation
-            
-            ### macOS/Linux
-            ```bash
-            # Download the binary for your platform
-            curl -L https://github.com/lroolle/atlas-cli/releases/download/${{ github.ref_name }}/atl-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m | sed 's/x86_64/amd64/') -o atl
-            chmod +x atl
-            sudo mv atl /usr/local/bin/
-            ```
-            
-            ### Go Install
-            ```bash
-            go install github.com/lroolle/atlas-cli/cmd/atl@${{ github.ref_name }}
-            ```
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

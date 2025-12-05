@@ -70,4 +70,11 @@ go.work
 atlas
 test-config.yaml
 
+# Claude Code Skill build artifacts
+.build/
+releases/*.skill
+.claude/skills/*/REFERENCE.md
+.claude/skills/*/VERSION
+.claude/
+
 # End of https://www.toptal.com/developers/gitignore/api/go

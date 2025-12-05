@@ -30,13 +30,13 @@ var prMergeCmd = &cobra.Command{
 			return err
 		}
 		project, repo := parts[0], parts[1]
-		
+
 		// Get PR details first
 		pr, err := client.GetPullRequest(ctx, project, repo, prID)
 		if err != nil {
 			return err
 		}
-		
+
 		if pr.State != "OPEN" {
 			return fmt.Errorf("PR #%d is not open (state: %s)", prID, pr.State)
 		}
@@ -52,17 +52,17 @@ var prMergeCmd = &cobra.Command{
 					break
 				}
 			}
-			
+
 			if !hasApproval {
 				return fmt.Errorf("PR #%d has no approvals. Use --force to merge anyway", prID)
 			}
 		}
-		
+
 		// Merge the PR
 		if err := client.MergePullRequest(ctx, project, repo, prID, pr.Version); err != nil {
 			return fmt.Errorf("merging PR: %w", err)
 		}
-		
+
 		fmt.Printf("✓ Merged PR #%d: %s\n", prID, pr.Title)
 		return nil
 	},

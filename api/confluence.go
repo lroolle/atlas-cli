@@ -29,15 +29,15 @@ type Space struct {
 }
 
 type Content struct {
-	ID       string              `json:"id"`
-	Type     string              `json:"type"`
-	Status   string              `json:"status"`
-	Title    string              `json:"title"`
-	Space    Space               `json:"space,omitempty"`
-	Body     ContentBody         `json:"body,omitempty"`
-	Version  ContentVersion      `json:"version,omitempty"`
-	Links    map[string]string   `json:"_links,omitempty"`
-	Metadata ContentMetadata     `json:"metadata,omitempty"`
+	ID       string            `json:"id"`
+	Type     string            `json:"type"`
+	Status   string            `json:"status"`
+	Title    string            `json:"title"`
+	Space    Space             `json:"space,omitempty"`
+	Body     ContentBody       `json:"body,omitempty"`
+	Version  ContentVersion    `json:"version,omitempty"`
+	Links    map[string]string `json:"_links,omitempty"`
+	Metadata ContentMetadata   `json:"metadata,omitempty"`
 }
 
 type ContentBody struct {
@@ -136,19 +136,17 @@ func (c *ConfluenceClient) GetPage(ctx context.Context, pageID string) (*Content
 	return &content, nil
 }
 
-// SearchContent searches for content
+// SearchContent searches for content using CQL
 func (c *ConfluenceClient) SearchContent(ctx context.Context, query string, limit int) ([]Content, error) {
 	params := url.Values{}
 	params.Set("cql", query)
 	params.Set("limit", fmt.Sprintf("%d", limit))
-	params.Set("expand", "content.version,content.space")
+	params.Set("expand", "version,space")
 
 	path := "/rest/api/content/search"
 
 	var response struct {
-		Results []struct {
-			Content Content `json:"content"`
-		} `json:"results"`
+		Results []Content `json:"results"`
 	}
 
 	err := c.Get(ctx, path, params, &response)
@@ -156,12 +154,7 @@ func (c *ConfluenceClient) SearchContent(ctx context.Context, query string, limi
 		return nil, err
 	}
 
-	contents := make([]Content, len(response.Results))
-	for i, r := range response.Results {
-		contents[i] = r.Content
-	}
-
-	return contents, nil
+	return response.Results, nil
 }
 
 // CreatePage creates a new page
@@ -244,6 +237,31 @@ func (c *ConfluenceClient) GetChildPages(ctx context.Context, pageID string, lim
 	return response.Results, nil
 }
 
+// GetPageByTitle looks up a page by title within a space
+func (c *ConfluenceClient) GetPageByTitle(ctx context.Context, spaceKey, title string) (*Content, error) {
+	params := url.Values{}
+	params.Set("spaceKey", spaceKey)
+	params.Set("title", title)
+	params.Set("expand", "version,space")
+
+	path := "/rest/api/content"
+
+	var response struct {
+		Results []Content `json:"results"`
+	}
+
+	err := c.Get(ctx, path, params, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(response.Results) == 0 {
+		return nil, fmt.Errorf("page not found: %q in space %q", title, spaceKey)
+	}
+
+	return &response.Results[0], nil
+}
+
 // GetAttachment downloads an attachment from a page
 func (c *ConfluenceClient) GetAttachment(ctx context.Context, pageID, filename string) ([]byte, error) {
 	params := url.Values{}
@@ -273,4 +291,10 @@ func (c *ConfluenceClient) GetAttachment(ctx context.Context, pageID, filename s
 
 	downloadPath := response.Results[0].Links.Download
 	return c.GetRaw(ctx, downloadPath)
+}
+
+// DeletePage deletes a page by ID
+func (c *ConfluenceClient) DeletePage(ctx context.Context, pageID string) error {
+	path := fmt.Sprintf("/rest/api/content/%s", pageID)
+	return c.Delete(ctx, path)
 }

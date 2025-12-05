@@ -29,7 +29,7 @@ var initCmd = &cobra.Command{
 		}
 
 		configFile := filepath.Join(atlasConfigDir, "config.yaml")
-		
+
 		// Check if config already exists
 		if _, err := os.Stat(configFile); err == nil {
 			fmt.Printf("Config file already exists at: %s\n", configFile)
@@ -91,7 +91,7 @@ confluence:
 			defaultProject = "PROJ"
 		}
 
-		content := fmt.Sprintf(defaultConfig, username, bitbucketServer, bitbucketToken, 
+		content := fmt.Sprintf(defaultConfig, username, bitbucketServer, bitbucketToken,
 			jiraServer, jiraToken, defaultProject)
 
 		if err := os.WriteFile(configFile, []byte(content), 0600); err != nil {

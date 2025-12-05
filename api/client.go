@@ -156,3 +156,11 @@ func (c *Client) GetRaw(ctx context.Context, path string) ([]byte, error) {
 
 	return io.ReadAll(resp.Body)
 }
+
+func (c *Client) Delete(ctx context.Context, path string) error {
+	resp, err := c.doRequest(ctx, "DELETE", path, nil)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+	return err
+}

@@ -83,7 +83,7 @@ func getReviewStatus(pr api.PullRequest) string {
 	approved := 0
 	needsWork := 0
 	pending := 0
-	
+
 	for _, reviewer := range pr.Reviewers {
 		if reviewer.Approved {
 			approved++
@@ -93,7 +93,7 @@ func getReviewStatus(pr api.PullRequest) string {
 			pending++
 		}
 	}
-	
+
 	if needsWork > 0 {
 		return fmt.Sprintf("❌ Changes requested")
 	}

@@ -13,9 +13,9 @@ import (
 )
 
 var issueCmd = &cobra.Command{
-	Use:   "issue",
-	Short: "Manage JIRA issues",
-	Long:  `Commands for listing, viewing, and managing JIRA issues`,
+	Use:     "issue",
+	Short:   "Manage JIRA issues",
+	Long:    `Commands for listing, viewing, and managing JIRA issues`,
 	Aliases: []string{"jira"},
 }
 
@@ -328,10 +328,9 @@ func init() {
 	issueCmd.AddCommand(issueCommentCmd)
 	issueCmd.AddCommand(issueCommentsCmd)
 	issueCmd.AddCommand(issuePrsCmd)
-	
+
 	issueListCmd.Flags().String("assignee", "", "Filter by assignee (use 'me' for current user)")
 	issueListCmd.Flags().String("project", "", "Filter by project")
 	issueListCmd.Flags().String("status", "", "Filter by status")
 	issueListCmd.Flags().Int("limit", cmdutil.DefaultLimit, "Maximum number of results")
 }
-

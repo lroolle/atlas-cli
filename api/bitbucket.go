@@ -33,16 +33,16 @@ type PullRequest struct {
 	FromRef     Ref    `json:"fromRef"`
 	ToRef       Ref    `json:"toRef"`
 	Author      struct {
-		User User `json:"user"`
-		Role string `json:"role"`
-		Approved bool `json:"approved"`
-		Status string `json:"status"`
+		User     User   `json:"user"`
+		Role     string `json:"role"`
+		Approved bool   `json:"approved"`
+		Status   string `json:"status"`
 	} `json:"author"`
 	Reviewers []struct {
-		User User `json:"user"`
-		Role string `json:"role"`
-		Approved bool `json:"approved"`
-		Status string `json:"status"`
+		User     User   `json:"user"`
+		Role     string `json:"role"`
+		Approved bool   `json:"approved"`
+		Status   string `json:"status"`
 	} `json:"reviewers"`
 	Links struct {
 		Self []Link `json:"self"`
@@ -50,9 +50,9 @@ type PullRequest struct {
 }
 
 type Ref struct {
-	ID           string `json:"id"`
-	DisplayID    string `json:"displayId"`
-	LatestCommit string `json:"latestCommit"`
+	ID           string     `json:"id"`
+	DisplayID    string     `json:"displayId"`
+	LatestCommit string     `json:"latestCommit"`
 	Repository   Repository `json:"repository"`
 }
 
@@ -102,14 +102,14 @@ type Comment struct {
 }
 
 type Commit struct {
-	ID               string `json:"id"`
-	DisplayID        string `json:"displayId"`
-	Author           User   `json:"author"`
-	AuthorTimestamp  int64  `json:"authorTimestamp"`
-	Committer        User   `json:"committer"`
-	CommitterTimestamp int64 `json:"committerTimestamp"`
-	Message          string `json:"message"`
-	Parents          []struct {
+	ID                 string `json:"id"`
+	DisplayID          string `json:"displayId"`
+	Author             User   `json:"author"`
+	AuthorTimestamp    int64  `json:"authorTimestamp"`
+	Committer          User   `json:"committer"`
+	CommitterTimestamp int64  `json:"committerTimestamp"`
+	Message            string `json:"message"`
+	Parents            []struct {
 		ID        string `json:"id"`
 		DisplayID string `json:"displayId"`
 	} `json:"parents"`

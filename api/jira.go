@@ -22,26 +22,26 @@ func NewJiraClient(baseURL, username, token string) *JiraClient {
 }
 
 type Issue struct {
-	ID     string `json:"id"`
-	Key    string `json:"key"`
-	Self   string `json:"self"`
+	ID     string      `json:"id"`
+	Key    string      `json:"key"`
+	Self   string      `json:"self"`
 	Fields IssueFields `json:"fields"`
 }
 
 type IssueFields struct {
-	Summary     string       `json:"summary"`
-	Description string       `json:"description"`
-	Status      Status       `json:"status"`
-	Priority    Priority     `json:"priority"`
-	IssueType   IssueType    `json:"issuetype"`
-	Assignee    *JiraUser    `json:"assignee"`
-	Reporter    JiraUser     `json:"reporter"`
-	Created     string       `json:"created"`
-	Updated     string       `json:"updated"`
-	Resolution  *Resolution  `json:"resolution"`
-	Project     JiraProject  `json:"project"`
-	IssueLinks  []IssueLink  `json:"issuelinks,omitempty"`
-	Parent      *Issue       `json:"parent,omitempty"`
+	Summary     string      `json:"summary"`
+	Description string      `json:"description"`
+	Status      Status      `json:"status"`
+	Priority    Priority    `json:"priority"`
+	IssueType   IssueType   `json:"issuetype"`
+	Assignee    *JiraUser   `json:"assignee"`
+	Reporter    JiraUser    `json:"reporter"`
+	Created     string      `json:"created"`
+	Updated     string      `json:"updated"`
+	Resolution  *Resolution `json:"resolution"`
+	Project     JiraProject `json:"project"`
+	IssueLinks  []IssueLink `json:"issuelinks,omitempty"`
+	Parent      *Issue      `json:"parent,omitempty"`
 }
 
 type JiraProject struct {
@@ -84,10 +84,10 @@ type Resolution struct {
 }
 
 type IssueLink struct {
-	ID           string    `json:"id"`
-	Type         LinkType  `json:"type"`
-	OutwardIssue *Issue    `json:"outwardIssue,omitempty"`
-	InwardIssue  *Issue    `json:"inwardIssue,omitempty"`
+	ID           string   `json:"id"`
+	Type         LinkType `json:"type"`
+	OutwardIssue *Issue   `json:"outwardIssue,omitempty"`
+	InwardIssue  *Issue   `json:"inwardIssue,omitempty"`
 }
 
 type LinkType struct {

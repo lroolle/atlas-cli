@@ -1,0 +1,76 @@
+version: 2
+project_name: atl
+
+release:
+  prerelease: auto
+  name_template: "v{{.Version}}"
+  draft: false
+  mode: "keep-existing"
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - <<: &build_defaults
+      binary: atl
+      main: ./cmd/atl
+      ldflags:
+        - -s -w
+        - -X github.com/lroolle/atlas-cli/internal/version.Version={{.Version}}
+        - -X github.com/lroolle/atlas-cli/internal/version.GitCommit={{.FullCommit}}
+        - -X github.com/lroolle/atlas-cli/internal/version.SourceDateEpoch={{.CommitTimestamp}}
+      env:
+        - CGO_ENABLED=0
+    id: macos
+    goos: [darwin]
+    goarch: [amd64, arm64]
+
+  - <<: *build_defaults
+    id: linux
+    goos: [linux]
+    goarch: [386, amd64, arm64]
+
+  - <<: *build_defaults
+    id: windows
+    goos: [windows]
+    goarch: [amd64, arm64]
+
+archives:
+  - id: nix
+    ids: [macos, linux]
+    <<: &archive_defaults
+      name_template: >-
+        {{ .ProjectName }}_{{ .Version }}_{{- if eq .Os "darwin" }}macOS{{- else }}{{ .Os }}{{- end }}_{{- if eq .Arch "amd64" }}x86_64{{- else if eq .Arch "386" }}i386{{- else }}{{ .Arch }}{{- end }}{{- if .Arm }}v{{ .Arm }}{{ end -}}
+    wrap_in_directory: true
+    formats: [tar.gz]
+    files:
+      - LICENSE
+      - README.md
+
+  - id: windows
+    ids: [windows]
+    <<: *archive_defaults
+    wrap_in_directory: false
+    formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^doc:'
+      - '^chore:'
+      - '^ci:'
+      - '^test:'
+      - Merge pull request
+      - Merge branch
