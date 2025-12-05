@@ -58,7 +58,7 @@ func TestParseConfluenceURL_ViewPageAction(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"results": [{"id": "123", "title": "Test"}]}`))
+		_, _ = w.Write([]byte(`{"results": [{"id": "123", "title": "Test"}]}`))
 	}))
 	defer server.Close()
 

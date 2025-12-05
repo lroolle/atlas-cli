@@ -34,7 +34,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $XDG_CONFIG_HOME/atlas/config.yaml)")
 	rootCmd.PersistentFlags().String("username", "", "Username for authentication")
 
-	viper.BindPFlag("username", rootCmd.PersistentFlags().Lookup("username"))
+	_ = viper.BindPFlag("username", rootCmd.PersistentFlags().Lookup("username"))
 
 	rootCmd.AddCommand(page.NewCmdPage())
 }
