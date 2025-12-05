@@ -3,111 +3,75 @@ package api
 import (
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/spf13/viper"
-)
-
-var (
-	bitbucketClient  *BitbucketClient
-	jiraClient       *JiraClient
-	confluenceClient *ConfluenceClient
-	clientMutex      sync.Mutex
 )
 
 type InstallationType string
 
 const (
-	InstallationTypeCloud InstallationType = "cloud"
+	InstallationTypeCloud  InstallationType = "cloud"
 	InstallationTypeServer InstallationType = "server"
 )
 
+type Config struct {
+	Server   string
+	Username string
+	Token    string
+}
+
 func GetBitbucketClient() (*BitbucketClient, error) {
-	clientMutex.Lock()
-	defer clientMutex.Unlock()
-
-	if bitbucketClient != nil {
-		return bitbucketClient, nil
+	cfg, err := loadConfig("bitbucket")
+	if err != nil {
+		return nil, err
 	}
-
-	server := viper.GetString("bitbucket.server")
-	username := viper.GetString("bitbucket.username")
-	if username == "" {
-		username = viper.GetString("username")
-	}
-	token := viper.GetString("bitbucket.token")
-
-	if server == "" || username == "" || token == "" {
-		return nil, fmt.Errorf("bitbucket configuration incomplete: server, username, and token required")
-	}
-
-	bitbucketClient = NewBitbucketClient(server, username, token)
-	return bitbucketClient, nil
+	return NewBitbucketClient(cfg.Server, cfg.Username, cfg.Token), nil
 }
 
 func GetJiraClient() (*JiraClient, error) {
-	clientMutex.Lock()
-	defer clientMutex.Unlock()
-
-	if jiraClient != nil {
-		return jiraClient, nil
+	cfg, err := loadConfig("jira")
+	if err != nil {
+		return nil, err
 	}
 
-	server := viper.GetString("jira.server")
-	username := viper.GetString("jira.username")
-	if username == "" {
-		username = viper.GetString("username")
-	}
-	token := viper.GetString("jira.token")
+	client := NewJiraClient(cfg.Server, cfg.Username, cfg.Token)
 
-	if server == "" || username == "" || token == "" {
-		return nil, fmt.Errorf("jira configuration incomplete: server, username, and token required")
-	}
-
-	jiraClient = NewJiraClient(server, username, token)
-	
-	// Detect installation type
 	installationType := viper.GetString("jira.installation")
 	if installationType == "" {
-		if strings.Contains(server, ".atlassian.net") {
+		if strings.Contains(cfg.Server, ".atlassian.net") {
 			installationType = string(InstallationTypeCloud)
 		} else {
 			installationType = string(InstallationTypeServer)
 		}
-		viper.Set("jira.installation", installationType)
 	}
+	client.InstallationType = InstallationType(installationType)
 
-	return jiraClient, nil
+	return client, nil
 }
 
 func GetConfluenceClient() (*ConfluenceClient, error) {
-	clientMutex.Lock()
-	defer clientMutex.Unlock()
-
-	if confluenceClient != nil {
-		return confluenceClient, nil
+	cfg, err := loadConfig("confluence")
+	if err != nil {
+		return nil, err
 	}
+	return NewConfluenceClient(cfg.Server, cfg.Username, cfg.Token), nil
+}
 
-	server := viper.GetString("confluence.server")
-	username := viper.GetString("confluence.username")
+func loadConfig(service string) (Config, error) {
+	server := viper.GetString(service + ".server")
+	username := viper.GetString(service + ".username")
 	if username == "" {
 		username = viper.GetString("username")
 	}
-	token := viper.GetString("confluence.token")
+	token := viper.GetString(service + ".token")
 
 	if server == "" || username == "" || token == "" {
-		return nil, fmt.Errorf("confluence configuration incomplete: server, username, and token required")
+		return Config{}, fmt.Errorf("%s configuration incomplete: server, username, and token required", service)
 	}
 
-	confluenceClient = NewConfluenceClient(server, username, token)
-	return confluenceClient, nil
-}
-
-func ResetClients() {
-	clientMutex.Lock()
-	defer clientMutex.Unlock()
-	
-	bitbucketClient = nil
-	jiraClient = nil
-	confluenceClient = nil
+	return Config{
+		Server:   server,
+		Username: username,
+		Token:    token,
+	}, nil
 }

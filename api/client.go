@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -31,10 +32,10 @@ func NewClient(baseURL, username, token string) *Client {
 	}
 }
 
-func (c *Client) doRequest(method, path string, body io.Reader) (*http.Response, error) {
+func (c *Client) doRequest(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
 	url := c.BaseURL + path
 
-	req, err := http.NewRequest(method, url, body)
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
@@ -54,24 +55,38 @@ func (c *Client) doRequest(method, path string, body io.Reader) (*http.Response,
 	}
 
 	if resp.StatusCode >= 400 {
-		defer resp.Body.Close()
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(body))
+		return resp, formatUnexpectedResponse(resp)
 	}
 
 	return resp, nil
 }
 
-func (c *Client) Get(path string, params url.Values, result interface{}) error {
+func formatUnexpectedResponse(resp *http.Response) *ErrUnexpectedResponse {
+	var errResp ErrorResponse
+
+	if resp.Body != nil {
+		_ = json.NewDecoder(resp.Body).Decode(&errResp)
+	}
+
+	return &ErrUnexpectedResponse{
+		Body:       errResp,
+		Status:     resp.Status,
+		StatusCode: resp.StatusCode,
+	}
+}
+
+func (c *Client) Get(ctx context.Context, path string, params url.Values, result interface{}) error {
 	if params != nil {
 		path = path + "?" + params.Encode()
 	}
 
-	resp, err := c.doRequest("GET", path, nil)
+	resp, err := c.doRequest(ctx, "GET", path, nil)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
 
 	if result != nil {
 		return json.NewDecoder(resp.Body).Decode(result)
@@ -80,7 +95,7 @@ func (c *Client) Get(path string, params url.Values, result interface{}) error {
 	return nil
 }
 
-func (c *Client) Post(path string, body interface{}, result interface{}) error {
+func (c *Client) Post(ctx context.Context, path string, body interface{}, result interface{}) error {
 	var reader io.Reader
 	if body != nil {
 		jsonData, err := json.Marshal(body)
@@ -90,11 +105,13 @@ func (c *Client) Post(path string, body interface{}, result interface{}) error {
 		reader = strings.NewReader(string(jsonData))
 	}
 
-	resp, err := c.doRequest("POST", path, reader)
+	resp, err := c.doRequest(ctx, "POST", path, reader)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
 
 	if result != nil {
 		return json.NewDecoder(resp.Body).Decode(result)
@@ -103,7 +120,7 @@ func (c *Client) Post(path string, body interface{}, result interface{}) error {
 	return nil
 }
 
-func (c *Client) Put(path string, body interface{}, result interface{}) error {
+func (c *Client) Put(ctx context.Context, path string, body interface{}, result interface{}) error {
 	var reader io.Reader
 	if body != nil {
 		jsonData, err := json.Marshal(body)
@@ -113,15 +130,37 @@ func (c *Client) Put(path string, body interface{}, result interface{}) error {
 		reader = strings.NewReader(string(jsonData))
 	}
 
-	resp, err := c.doRequest("PUT", path, reader)
+	resp, err := c.doRequest(ctx, "PUT", path, reader)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
 
 	if result != nil {
 		return json.NewDecoder(resp.Body).Decode(result)
 	}
 
 	return nil
+}
+
+func (c *Client) GetRaw(ctx context.Context, path string) ([]byte, error) {
+	resp, err := c.doRequest(ctx, "GET", path, nil)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return io.ReadAll(resp.Body)
+}
+
+func (c *Client) Delete(ctx context.Context, path string) error {
+	resp, err := c.doRequest(ctx, "DELETE", path, nil)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+	return err
 }

@@ -1,0 +1,487 @@
+#+TITLE: Atlas Cli Restapi
+#+DATE: 2025-08-15 14:52
+#+STARTUP: overview
+#+AUTHOR: Eric Wang
+#+EXPORT_FILE_NAME: atlas-cli-restapi
+#+FILETAGS: :atlas-cli-restapi:..:
+#+OPTIONS: ^:{} _:{}
+
+* Atlas CLI - Atlassian REST API Client
+
+A GitHub CLI-inspired command-line interface for Atlassian Bitbucket Server, JIRA, and Confluence REST APIs.
+
+** Overview
+
+Atlas CLI provides a clean, minimal interface to interact with Atlassian's Enterprise Server REST APIs, making daily workflows more efficient. Built with Go, it follows GitHub's `gh` CLI patterns for familiar developer experience.
+
+** Installation
+
+#+begin_src sh
+# Clone and build
+git clone https://github.com/lroolle/atlas-cli
+cd atlas-cli
+make build
+
+# Or install to $GOPATH/bin
+make install
+#+end_src
+
+** Configuration
+
+Atlas CLI uses XDG Base Directory specification for configuration. Initialize with:
+
+#+begin_src sh
+atl init  # Creates ~/.config/atlas/config.yaml
+#+end_src
+
+*** Configuration File Structure
+
+#+begin_src yaml
+# ~/.config/atlas/config.yaml
+# Global username (can be overridden per service)
+username: your.username
+
+# Bitbucket configuration
+bitbucket:
+  server: https://git.yourdomain.com
+  token: your-bitbucket-api-token
+  default_project: PROJECT     # Default project
+  default_repo: REPO           # Default repository
+
+# JIRA configuration
+jira:
+  server: https://jira.yourdomain.com
+  token: your-jira-bearer-token # Use Bearer token/PAT
+  default_project: PROJ         # Default project
+
+# Confluence configuration
+confluence:
+  server: https://confluence.yourdomain.com
+  token: your-confluence-bearer-token
+  default_space: "~your.username"  # Your personal space
+#+end_src
+
+*** Environment Variables
+
+Alternative to config file:
+#+begin_src sh
+# Global
+export ATLAS_USERNAME=your.username
+
+# Bitbucket
+export ATLAS_BITBUCKET_SERVER=https://git.yourdomain.com
+export ATLAS_BITBUCKET_TOKEN=your-token
+export ATLAS_BITBUCKET_DEFAULT_PROJECT=PROJECT
+
+# JIRA
+export ATLAS_JIRA_SERVER=https://jira.yourdomain.com
+export ATLAS_JIRA_TOKEN=your-bearer-token
+export ATLAS_JIRA_DEFAULT_PROJECT=PROJ
+
+# Confluence
+export ATLAS_CONFLUENCE_SERVER=https://confluence.yourdomain.com
+export ATLAS_CONFLUENCE_TOKEN=your-bearer-token
+export ATLAS_CONFLUENCE_DEFAULT_SPACE="~your.username"
+#+end_src
+
+** Features
+
+*** Pull Request Management (GitHub CLI-style)
+- List PRs with smart filtering (state, author, branches)
+- View PR details with reviewers and approval status
+- Show PR status dashboard (created by you, requesting review)
+- Get PR diffs for code review
+- Merge PRs with approval checks
+- Comment on PRs
+- Default project/repo support for convenience
+
+*** JIRA Issue Management
+- Search issues with JQL or simple filters
+- View issue details with full metadata
+- Transition issues between states with validation
+- Add comments to issues
+- Default project support
+- Bearer token authentication
+
+*** Confluence Page Management
+- List pages in spaces with filtering
+- Search content across spaces
+- View page details and content
+- Browse spaces (global, personal, project)
+- Default space support (including personal spaces)
+- Bearer token authentication
+
+** Usage Examples
+
+*** Pull Requests (GitHub CLI-style)
+
+#+begin_src sh
+# Smart argument parsing with defaults
+atl pr list                    # Uses default project/repo
+atl pr list REPO              # Uses default project + specified repo
+atl pr list PROJECT/REPO      # Fully specified
+
+# Filtering and status
+atl pr list --state ALL --author @me --limit 10
+atl pr status                  # Show your PR dashboard
+
+# Working with specific PRs
+atl pr view 123               # Uses defaults + PR ID
+atl pr diff 123               # Get PR diff
+atl pr comment 123 "LGTM!"    # Add comment
+atl pr merge 123              # Merge with approval checks
+
+# Override defaults when needed
+atl pr view OTHER/REPO 456
+#+end_src
+
+*** JIRA Issues
+
+#+begin_src sh
+# GitHub CLI-style issue commands
+atl issue list                 # Uses default project
+atl issue list --assignee me --status "In Progress"
+
+# View and manage issues
+atl issue view PROJ-123
+atl issue transition PROJ-123 "In Review"
+atl issue comment PROJ-123 "Fixed in PR #456"
+
+# Search with filters
+atl issue list --project OTHER --status Open
+#+end_src
+
+*** Confluence Pages
+
+#+begin_src sh
+# Personal space management
+atl page list                  # Uses default space (your personal space)
+atl page search "my notes"     # Search in default space
+
+# Working with different spaces
+atl page list SPACE           # List pages in specific space
+atl page list '~other.user'   # Personal space (quote to avoid shell expansion)
+
+# Page operations
+atl page view 12345            # View page details
+atl page spaces               # List all available spaces
+
+# Search across spaces
+atl page search "meeting notes" --space TEAM
+#+end_src
+
+** Architecture
+
+Built with:
+- Go 1.22+ 
+- Cobra for CLI framework
+- Viper for configuration
+- Standard net/http for REST calls
+
+Project structure:
+#+begin_example
+atlas-cli/
+├── cmd/              # CLI commands
+│   ├── root.go       # Root command and config
+│   ├── init.go       # Config initialization
+│   ├── defaults.go   # Default argument parsing
+│   ├── pr.go         # Pull request commands
+│   ├── pr_status.go  # PR status dashboard
+│   ├── pr_merge.go   # PR merge command
+│   ├── jira.go       # JIRA issue commands (alias: issue)
+│   └── page.go       # Confluence page commands
+├── api/              # API clients with authentication
+│   ├── client.go     # Base HTTP client with auth
+│   ├── factory.go    # Singleton client factory
+│   ├── errors.go     # Structured error handling
+│   ├── bitbucket.go  # Bitbucket Server API
+│   ├── jira.go       # JIRA API with Bearer auth
+│   └── confluence.go # Confluence API
+├── config.yaml.example
+├── Makefile
+└── main.go
+#+end_example
+
+** Roadmap
+
+*** Completed Features
+- [X] GitHub CLI-style PR operations (list, view, diff, comment, merge, status)
+- [X] JIRA issue management with Bearer token auth
+- [X] Confluence page management
+- [X] Smart default project/repo/space support
+- [X] Singleton client pattern for performance
+- [X] XDG Base Directory configuration
+- [X] Environment variable overrides
+- [X] Structured error handling
+- [X] Config initialization command
+
+*** Future Enhancements
+
+**** Near-term (v1.x)
+- [ ] PR creation workflow
+  - Create PRs from current branch
+  - Template support for PR descriptions
+  - Auto-assign reviewers based on git history
+- [ ] Build status integration
+  - Display CI/CD status in PR listings
+  - Wait for builds before merging
+  - Integration with Jenkins/GitHub Actions/etc
+- [ ] Git integration (auto-detect repo from git remote)
+  - Parse `.git/config` to determine PROJECT/REPO
+  - Smart branch detection for PR creation
+  - Git hooks integration
+
+**** Mid-term (v2.x)
+- [ ] Multiple profiles support
+  - Switch between different Atlassian instances
+  - Profile-specific configurations
+  - Team/project-specific defaults
+- [ ] Interactive mode with fuzzy search
+  - `atlas pr` opens interactive PR browser
+  - Fuzzy finding for issues, pages, repos
+  - Vim-style keybindings for navigation
+- [ ] Enhanced content management
+  - Confluence page creation/editing with Markdown
+  - JIRA issue creation workflow with templates
+  - Bulk operations (mass PR merging, issue transitions)
+
+**** Long-term (v3.x) - The LLM Revolution
+- [ ] **MCP Server Integration** 🤖
+  - Expose atlas-cli as MCP (Model Context Protocol) server
+  - Enable LLMs to directly interact with Atlassian APIs
+  - Natural language → Atlassian operations
+  - Example: "Show me PRs that need my review in the mobile team"
+  
+- [ ] **AI-Powered Workflows**
+  - Smart PR review assistance
+  - Automated JIRA ticket creation from PR descriptions
+  - Confluence documentation generation from code changes
+  - Context-aware suggestions based on team patterns
+
+- [ ] **Advanced Automation**
+  - Workflow orchestration (PR merge → JIRA transition → Confluence update)
+  - Team productivity analytics
+  - Smart notifications and summaries
+  - Integration with Slack/Teams for team coordination
+
+**** Experimental (Research Phase)
+- [ ] **Plugin Architecture**
+  - Custom commands and integrations
+  - Community-contributed extensions
+  - DSL for defining custom workflows
+  
+- [ ] **Real-time Collaboration**
+  - Live PR review sessions
+  - Shared cursors in Confluence editing
+  - Team presence indicators
+
+- [ ] **Mobile Companion**
+  - Quick PR approvals on mobile
+  - Push notifications for critical issues
+  - Voice commands for common operations
+
+** API References
+
+- Bitbucket Server REST API: https://developer.atlassian.com/server/bitbucket/rest/v906/intro/
+- JIRA Server REST API: https://developer.atlassian.com/server/jira/platform/rest-apis/
+- Confluence Server REST API: https://developer.atlassian.com/server/confluence/rest/api/
+- OpenAPI Spec: Available at `bitbucket-9.6-openapi.json`
+
+** Quick Start
+
+#+begin_src sh
+# 1. Build and initialize
+git clone https://github.com/lroolle/atlas-cli
+cd atlas-cli
+make build
+./atl init
+
+# 2. Edit config with your credentials
+vim ~/.config/atlas/config.yaml
+
+# 3. Test the setup
+./atl pr list              # List PRs in default repo
+./atl issue list           # List issues in default project  
+./atl page list            # List pages in default space
+
+# 4. Explore commands
+./atl pr status            # Your PR dashboard
+./atl page spaces          # Available Confluence spaces
+./atl issue list --assignee me
+#+end_src
+
+** Authentication Guide
+
+*** Bitbucket Server
+- Uses **Basic Authentication** with API tokens
+- Generate tokens: Bitbucket → Profile → Personal access tokens
+- Format: `username:token` (handled automatically)
+
+*** JIRA Server
+- Uses **Bearer Token Authentication** (Personal Access Tokens)
+- Generate tokens: JIRA → Profile → Security → API Tokens  
+- More secure than Basic auth, required by most enterprise JIRA instances
+- If you get `403 AUTHENTICATION_DENIED` with Basic auth, switch to Bearer tokens
+
+*** Confluence Server
+- Uses **Bearer Token Authentication**
+- Same token generation as JIRA
+- Personal spaces use `~username` format (quote in shell: `'~username'`)
+
+*** Token Security
+- Store tokens in config file with proper permissions (600)
+- Never commit tokens to git repositories
+- Use environment variables in CI/CD pipelines
+- Rotate tokens regularly per security policy
+
+** Key Design Principles
+
+*** GitHub CLI Inspiration
+Atlas CLI follows `gh` CLI patterns for familiar developer experience:
+- Smart argument parsing with defaults
+- Consistent command structure: `atlas <service> <action>`
+- Status dashboards for quick overviews
+- Flexible filtering and output formatting
+
+*** Atlassian Enterprise Focus
+Built specifically for Atlassian Server (on-premise) environments:
+- Bearer token authentication for modern security requirements
+- Support for enterprise authentication patterns
+- Performance optimizations with client caching
+- XDG Base Directory compliance for Linux/Unix environments
+
+*** Developer Productivity
+Designed to eliminate repetitive tasks:
+- Default project/repo/space configuration
+- Smart argument completion
+- Minimal typing required for common operations
+- Integration-ready for scripting and automation
+
+** Example Real Usage
+
+#+begin_src sh
+# Daily workflow example
+atl pr status                    # Check your PR dashboard
+atl pr list --author @me         # Your open PRs
+atl issue list --assignee me     # Your assigned issues  
+atl page list                    # Your personal pages
+
+# Quick operations
+atl pr view 123                  # View PR details
+atl pr merge 123                 # Merge when ready
+atl issue transition PROJ-456 "Done"  # Move issue
+atl page search "meeting notes"  # Find your notes
+#+end_src
+
+** Future Vision: MCP Integration 🤖
+
+*** What is MCP?
+Model Context Protocol (MCP) is a standardized way for AI models to interact with external tools and data sources. By implementing MCP, atlas-cli becomes an AI-native tool that can be controlled through natural language.
+
+*** The Vision
+Imagine telling Claude or GPT:
+- "Show me all PRs from the mobile team that are ready for review"
+- "Create a JIRA ticket for the bug we discussed, link it to PR #1234"
+- "Generate a release notes page in Confluence from the last 10 merged PRs"
+- "Which team members have the most pending PR reviews this week?"
+
+*** Technical Implementation
+#+begin_src go
+// Future MCP server implementation
+type MCPServer struct {
+    atlasClient *AtlasClient
+    capabilities []MCPCapability
+}
+
+type MCPCapability struct {
+    Name        string
+    Description string
+    Parameters  []MCPParameter
+    Handler     func(params map[string]interface{}) (*MCPResponse, error)
+}
+
+// Example capabilities
+var capabilities = []MCPCapability{
+    {
+        Name: "list_pull_requests",
+        Description: "List pull requests with filtering options",
+        Parameters: []MCPParameter{
+            {Name: "project", Type: "string", Required: false},
+            {Name: "author", Type: "string", Required: false},
+            {Name: "state", Type: "string", Required: false},
+        },
+        Handler: handleListPRs,
+    },
+    {
+        Name: "get_team_productivity",
+        Description: "Analyze team productivity metrics",
+        Parameters: []MCPParameter{
+            {Name: "team", Type: "string", Required: true},
+            {Name: "period", Type: "string", Required: false},
+        },
+        Handler: handleTeamMetrics,
+    },
+}
+#+end_src
+
+*** AI-Powered Use Cases
+
+**** Development Workflow
+- **Smart Code Review**: AI analyzes PR diffs and suggests reviewers based on code expertise
+- **Automated Documentation**: Generate Confluence pages from PR descriptions and code changes
+- **Context-Aware Notifications**: "This PR affects the auth module, notifying security team"
+
+**** Project Management
+- **Intelligent Planning**: AI suggests JIRA epics based on PR patterns and commit history
+- **Resource Optimization**: "Team A has bandwidth for new features, Team B is overloaded"
+- **Risk Assessment**: Identify PRs that might cause conflicts or break dependencies
+
+**** Knowledge Management
+- **Smart Search**: "Find Confluence pages related to authentication issues from last quarter"
+- **Content Generation**: Auto-generate runbooks from JIRA incident patterns
+- **Team Onboarding**: AI-curated learning paths based on team's code and documentation
+
+*** Implementation Phases
+
+**** Phase 1: Basic MCP Server
+#+begin_src sh
+# Start MCP server
+atl mcp server --port 8080
+
+# Available endpoints:
+# GET /capabilities - List available AI functions
+# POST /execute - Execute atlas-cli commands via AI
+#+end_src
+
+**** Phase 2: Claude Desktop Integration
+#+begin_src json
+{
+  "mcpServers": {
+    "atlas-cli": {
+      "command": "atl",
+      "args": ["mcp", "server"],
+      "env": {
+        "ATLAS_CONFIG": "/path/to/config.yaml"
+      }
+    }
+  }
+}
+#+end_src
+
+**** Phase 3: Advanced AI Workflows
+- Custom AI assistants for different teams (mobile, backend, devops)
+- Learning from team patterns and preferences
+- Proactive suggestions based on project context
+
+*** Why This Matters
+Current Atlassian tools are:
+- **Reactive**: You have to know what to look for
+- **Siloed**: Each tool exists in isolation
+- **Manual**: Repetitive tasks require human intervention
+
+With MCP integration, atlas-cli becomes:
+- **Proactive**: AI suggests actions based on context
+- **Connected**: Cross-tool workflows and insights
+- **Automated**: Complex multi-step operations via natural language
+
+This isn't just about making Atlassian less terrible—it's about making it actually intelligent.

@@ -5,7 +5,7 @@ LDFLAGS=-ldflags "-X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME}"
 
 .PHONY: build
 build:
-	go build -o ${BINARY_NAME} ${LDFLAGS} .
+	go build -o ${BINARY_NAME} ${LDFLAGS} ./cmd/atl
 
 .PHONY: clean
 clean:
@@ -35,14 +35,14 @@ install: build
 .PHONY: ass
 ass:
 	@echo "Building for Atlassian Server Stuff..."
-	@go build -o ass ${LDFLAGS} .
+	@go build -o ass ${LDFLAGS} ./cmd/atl
 	@echo "Built as 'ass' - because we know what you're thinking 😏"
 
 .PHONY: cross
 cross:
-	GOOS=linux GOARCH=amd64 go build -o ${BINARY_NAME}-linux-amd64 ${LDFLAGS} .
-	GOOS=darwin GOARCH=amd64 go build -o ${BINARY_NAME}-darwin-amd64 ${LDFLAGS} .
-	GOOS=darwin GOARCH=arm64 go build -o ${BINARY_NAME}-darwin-arm64 ${LDFLAGS} .
-	GOOS=windows GOARCH=amd64 go build -o ${BINARY_NAME}-windows-amd64.exe ${LDFLAGS} .
+	GOOS=linux GOARCH=amd64 go build -o ${BINARY_NAME}-linux-amd64 ${LDFLAGS} ./cmd/atl
+	GOOS=darwin GOARCH=amd64 go build -o ${BINARY_NAME}-darwin-amd64 ${LDFLAGS} ./cmd/atl
+	GOOS=darwin GOARCH=arm64 go build -o ${BINARY_NAME}-darwin-arm64 ${LDFLAGS} ./cmd/atl
+	GOOS=windows GOARCH=amd64 go build -o ${BINARY_NAME}-windows-amd64.exe ${LDFLAGS} ./cmd/atl
 
 .DEFAULT_GOAL := build

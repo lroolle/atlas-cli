@@ -43,11 +43,11 @@ Temporary Items
 # If you prefer the allow list template instead of the deny list, see community template:
 # https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
 #
-# Binaries for programs and plugins
-atl
-ass
-atlas
-atlas-cli
+# Binaries for programs and plugins (only at root)
+/atl
+/ass
+/atlas
+/atlas-cli
 *.exe
 *.exe~
 *.dll
@@ -69,5 +69,12 @@ go.work
 # Atlas CLI specific
 atlas
 test-config.yaml
+
+# Claude Code Skill build artifacts
+.build/
+releases/*.skill
+.claude/skills/*/REFERENCE.md
+.claude/skills/*/VERSION
+.claude/
 
 # End of https://www.toptal.com/developers/gitignore/api/go
