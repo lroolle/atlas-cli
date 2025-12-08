@@ -100,22 +100,27 @@ install_binary() {
 
     local platform version download_url
     platform="$(detect_platform)"
+    log "Platform: $platform"
 
     # Get latest release version
+    log "Checking GitHub releases..."
     version=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null \
         | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/') || true
 
     if [[ -z "$version" ]]; then
-        log "No releases found, trying go install..."
+        warn "No GitHub releases found"
+        log "Fallback: go install"
         install_via_go
         return
     fi
+    log "Latest release: $version"
 
     download_url="https://github.com/$REPO/releases/download/$version/${BIN_NAME}_${platform}.tar.gz"
+    log "Downloading: $download_url"
 
-    log "Downloading $version for $platform..."
     if ! download_and_verify "$download_url" "$TMP_DIR/archive.tar.gz"; then
-        log "Download failed, trying go install..."
+        warn "Download failed (no prebuilt binary for $platform)"
+        log "Fallback: go install"
         install_via_go
         return
     fi
@@ -143,27 +148,30 @@ install_binary() {
 
 install_via_go() {
     if ! command -v go >/dev/null 2>&1; then
-        err "No releases available and Go not installed. Install Go or wait for a release."
+        err "No prebuilt binary and Go not installed. Install Go first: https://go.dev/dl/"
     fi
 
-    log "Installing via go install..."
+    local go_pkg="github.com/$REPO/cmd/$BIN_NAME@latest"
+    log "Running: GOBIN=$BIN_DIR go install $go_pkg"
     mkdir -p "$BIN_DIR"
     export GOBIN="$BIN_DIR"
-    go install "github.com/$REPO/cmd/$BIN_NAME@latest" || err "go install failed"
+
+    if ! go install "$go_pkg"; then
+        err "go install failed"
+    fi
 
     # Verify binary was actually installed
     if [[ ! -f "$BIN_DIR/$BIN_NAME" ]]; then
-        # Check if it went to default GOBIN
         local default_gobin="${GOPATH:-$HOME/go}/bin"
         if [[ -f "$default_gobin/$BIN_NAME" ]]; then
-            log "Binary installed to $default_gobin, moving to $BIN_DIR..."
+            log "Moving binary from $default_gobin to $BIN_DIR"
             mv "$default_gobin/$BIN_NAME" "$BIN_DIR/$BIN_NAME"
         else
-            err "go install succeeded but binary not found at $BIN_DIR/$BIN_NAME"
+            err "go install completed but binary not found"
         fi
     fi
 
-    log "Installed $BIN_NAME via go install to $BIN_DIR/$BIN_NAME"
+    log "Installed: $BIN_DIR/$BIN_NAME"
 }
 
 install_skill() {
@@ -180,21 +188,20 @@ install_skill() {
     skill_src="$script_dir/skills/$SKILL_NAME"
 
     if [[ -n "$script_dir" && -d "$skill_src" && -f "$skill_src/SKILL.md" ]]; then
-        # Local install from repo
+        log "Source: local repo ($skill_src)"
         cp -r "$skill_src/"* "$staging/"
-        log "Staged skill from local repo"
     else
-        # Remote install via curl (one-liner case)
-        log "Downloading skill from GitHub..."
+        log "Source: GitHub (raw.githubusercontent.com)"
         local base_url="https://raw.githubusercontent.com/$REPO/main/skills/$SKILL_NAME"
 
+        log "Downloading: SKILL.md"
         download_and_verify "$base_url/SKILL.md" "$staging/SKILL.md" \
             || err "Failed to download SKILL.md"
+
+        log "Downloading: references/confluence-guidelines.md"
         download_and_verify "$base_url/references/confluence-guidelines.md" \
             "$staging/references/confluence-guidelines.md" \
             || err "Failed to download confluence-guidelines.md"
-
-        log "Downloaded skill from GitHub"
     fi
 
     # Validate skill structure
@@ -205,7 +212,7 @@ install_skill() {
     mkdir -p "$SKILL_DIR"
     mv "$staging" "$skill_dest"
 
-    log "Installed skill to $skill_dest"
+    log "Installed: $skill_dest"
 }
 
 check_path() {
