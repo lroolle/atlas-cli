@@ -46,4 +46,9 @@ cross:
 	GOOS=darwin GOARCH=arm64 go build -o ${BINARY_NAME}-darwin-arm64 ${LDFLAGS} ./cmd/atl
 	GOOS=windows GOARCH=amd64 go build -o ${BINARY_NAME}-windows-amd64.exe ${LDFLAGS} ./cmd/atl
 
+.PHONY: skill
+skill:
+	cd skills && zip -r ../atl-cli.skill atl-cli/
+	@echo "Packaged: atl-cli.skill"
+
 .DEFAULT_GOAL := build
