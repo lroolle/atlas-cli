@@ -51,7 +51,14 @@ atl pr list PROJ/repo                     # AI sees PR status
 ## Install
 
 ```bash
-# Direct
+# One-liner (binary + Claude Code skill)
+curl -fsSL https://raw.githubusercontent.com/lroolle/atlas-cli/main/install.sh | bash
+
+# Or with options
+curl -fsSL https://raw.githubusercontent.com/lroolle/atlas-cli/main/install.sh | bash -s -- --system  # /usr/local/bin
+curl -fsSL https://raw.githubusercontent.com/lroolle/atlas-cli/main/install.sh | bash -s -- --bin-only  # skip skill
+
+# Via go install
 go install github.com/lroolle/atlas-cli/cmd/atl@main
 
 # From source
