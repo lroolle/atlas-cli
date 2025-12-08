@@ -147,7 +147,22 @@ install_via_go() {
     fi
 
     log "Installing via go install..."
-    GOBIN="$BIN_DIR" go install "github.com/$REPO/cmd/$BIN_NAME@latest"
+    mkdir -p "$BIN_DIR"
+    export GOBIN="$BIN_DIR"
+    go install "github.com/$REPO/cmd/$BIN_NAME@latest" || err "go install failed"
+
+    # Verify binary was actually installed
+    if [[ ! -f "$BIN_DIR/$BIN_NAME" ]]; then
+        # Check if it went to default GOBIN
+        local default_gobin="${GOPATH:-$HOME/go}/bin"
+        if [[ -f "$default_gobin/$BIN_NAME" ]]; then
+            log "Binary installed to $default_gobin, moving to $BIN_DIR..."
+            mv "$default_gobin/$BIN_NAME" "$BIN_DIR/$BIN_NAME"
+        else
+            err "go install succeeded but binary not found at $BIN_DIR/$BIN_NAME"
+        fi
+    fi
+
     log "Installed $BIN_NAME via go install to $BIN_DIR/$BIN_NAME"
 }
 

@@ -26,10 +26,55 @@ So we built one. Learned from `gh` and `jira-cli`, focused on what matters:
 
 Works for humans. Works for AI agents. Same tool.
 
+## Install
+
+One-liner (installs binary + Claude Code skill):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/lroolle/atlas-cli/main/install.sh | bash
+```
+
+System-wide (`/usr/local/bin`, requires sudo):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/lroolle/atlas-cli/main/install.sh | bash -s -- --system
+```
+
+Custom binary location:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/lroolle/atlas-cli/main/install.sh | bash -s -- --bin-dir /usr/local/bin
+```
+
+Custom skill location:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/lroolle/atlas-cli/main/install.sh | bash -s -- --skill-dir ~/my-skills
+```
+
+Binary only / Skill only:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/lroolle/atlas-cli/main/install.sh | bash -s -- --bin-only
+curl -fsSL https://raw.githubusercontent.com/lroolle/atlas-cli/main/install.sh | bash -s -- --skill-only
+```
+
+Via Go:
+
+```bash
+go install github.com/lroolle/atlas-cli/cmd/atl@latest
+```
+
+From source:
+
+```bash
+git clone https://github.com/lroolle/atlas-cli.git && cd atlas-cli
+make build && make install
+```
+
 ## Quick Start
 
 ```bash
-go install github.com/lroolle/atlas-cli/cmd/atl@main
 atl init  # creates ~/.config/atlas/config.yaml
 ```
 
@@ -47,24 +92,6 @@ atl pr list PROJ/repo                     # AI sees PR status
 - [Configuration](docs/CONFIGURATION.md) - Setup & tokens
 - [Workflows](docs/WORKFLOWS.md) - Real examples
 - [Troubleshooting](docs/TROUBLESHOOTING.md) - When things break
-
-## Install
-
-```bash
-# One-liner (binary + Claude Code skill)
-curl -fsSL https://raw.githubusercontent.com/lroolle/atlas-cli/main/install.sh | bash
-
-# Or with options
-curl -fsSL https://raw.githubusercontent.com/lroolle/atlas-cli/main/install.sh | bash -s -- --system  # /usr/local/bin
-curl -fsSL https://raw.githubusercontent.com/lroolle/atlas-cli/main/install.sh | bash -s -- --bin-only  # skip skill
-
-# Via go install
-go install github.com/lroolle/atlas-cli/cmd/atl@main
-
-# From source
-git clone https://github.com/lroolle/atlas-cli.git && cd atlas-cli
-make build && make install
-```
 
 ## What This Is NOT
 
