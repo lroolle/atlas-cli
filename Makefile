@@ -1,7 +1,8 @@
 BINARY_NAME=atl
-VERSION=$(shell git describe --tags --always --dirty)
-BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
-LDFLAGS=-ldflags "-X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME}"
+VERSION=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+GIT_COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
+VERSION_PKG=github.com/lroolle/atlas-cli/internal/version
+LDFLAGS=-ldflags "-s -w -X $(VERSION_PKG).Version=$(VERSION) -X $(VERSION_PKG).GitCommit=$(GIT_COMMIT)"
 
 .PHONY: build
 build:
