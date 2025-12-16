@@ -32,7 +32,7 @@ jobs:
 
       - name: Package and upload skill bundle
         run: |
-          cd skills && zip -r ../atl-cli.skill atl-cli/
+          zip -r atl-cli.skill skills/atl-cli/
           gh release upload ${{ github.ref_name }} atl-cli.skill --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
