@@ -22,10 +22,20 @@ jobs:
         with:
           go-version-file: 'go.mod'
 
+      - name: Package skill bundle
+        run: |
+          cd skills && zip -r ../atl-cli.skill atl-cli/
+          echo "Packaged: atl-cli.skill"
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
           version: '~> v2'
           args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload skill bundle to release
+        run: gh release upload ${{ github.ref_name }} atl-cli.skill --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
