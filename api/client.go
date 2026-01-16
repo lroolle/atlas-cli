@@ -33,6 +33,10 @@ func NewClient(baseURL, username, token string) *Client {
 }
 
 func (c *Client) doRequest(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
+	return c.doRequestWithAccept(ctx, method, path, body, "application/json")
+}
+
+func (c *Client) doRequestWithAccept(ctx context.Context, method, path string, body io.Reader, accept string) (*http.Response, error) {
 	url := c.BaseURL + path
 
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
@@ -47,7 +51,9 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body io.Rea
 		req.Header.Set("Authorization", "Basic "+auth)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
+	if accept != "" {
+		req.Header.Set("Accept", accept)
+	}
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -159,6 +165,23 @@ func (c *Client) GetRaw(ctx context.Context, path string) ([]byte, error) {
 
 func (c *Client) Delete(ctx context.Context, path string) error {
 	resp, err := c.doRequest(ctx, "DELETE", path, nil)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+	return err
+}
+
+func (c *Client) DeleteWithBody(ctx context.Context, path string, body interface{}) error {
+	var reader io.Reader
+	if body != nil {
+		jsonData, err := json.Marshal(body)
+		if err != nil {
+			return fmt.Errorf("marshaling body: %w", err)
+		}
+		reader = strings.NewReader(string(jsonData))
+	}
+
+	resp, err := c.doRequest(ctx, "DELETE", path, reader)
 	if resp != nil {
 		defer resp.Body.Close()
 	}

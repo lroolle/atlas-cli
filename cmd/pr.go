@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -43,21 +44,33 @@ var prListCmd = &cobra.Command{
 			return err
 		}
 
+		jsonOutput, _ := cmd.Flags().GetBool("json")
+		web, _ := cmd.Flags().GetBool("web")
+		if web {
+			if jsonOutput {
+				return fmt.Errorf("--web and --json are mutually exclusive")
+			}
+			url := fmt.Sprintf("%s/projects/%s/repos/%s/pull-requests", client.Client.BaseURL, project, repo)
+			if err := openBrowser(url); err != nil {
+				return fmt.Errorf("opening browser: %w", err)
+			}
+			return nil
+		}
+
 		state, err := cmd.Flags().GetString("state")
 		cmdutil.ExitIfError(err)
 		limit, err := cmd.Flags().GetInt("limit")
 		cmdutil.ExitIfError(err)
 		author, err := cmd.Flags().GetString("author")
 		cmdutil.ExitIfError(err)
+		base, err := cmd.Flags().GetString("base")
+		cmdutil.ExitIfError(err)
+		head, err := cmd.Flags().GetString("head")
+		cmdutil.ExitIfError(err)
 
 		prs, err := client.ListPullRequests(ctx, project, repo, state, limit)
 		if err != nil {
 			return err
-		}
-
-		if len(prs) == 0 {
-			fmt.Println("No pull requests found")
-			return nil
 		}
 
 		if author != "" {
@@ -70,6 +83,36 @@ var prListCmd = &cobra.Command{
 				}
 			}
 			prs = filtered
+		}
+
+		base = normalizeBranchName(base)
+		head = normalizeBranchName(head)
+		if base != "" {
+			var filtered []api.PullRequest
+			for _, pr := range prs {
+				if branchMatches(pr.ToRef, base) {
+					filtered = append(filtered, pr)
+				}
+			}
+			prs = filtered
+		}
+		if head != "" {
+			var filtered []api.PullRequest
+			for _, pr := range prs {
+				if branchMatches(pr.FromRef, head) {
+					filtered = append(filtered, pr)
+				}
+			}
+			prs = filtered
+		}
+
+		if len(prs) == 0 {
+			fmt.Println("No pull requests found")
+			return nil
+		}
+
+		if jsonOutput {
+			return json.NewEncoder(os.Stdout).Encode(prs)
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
@@ -127,9 +170,29 @@ var prViewCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+
+		jsonOutput, _ := cmd.Flags().GetBool("json")
+		web, _ := cmd.Flags().GetBool("web")
+		if web && jsonOutput {
+			return fmt.Errorf("--web and --json are mutually exclusive")
+		}
+
+		prURL := getPRURL(client.Client.BaseURL, project, repo, prID)
+
+		if web {
+			if err := openBrowser(prURL); err != nil {
+				return fmt.Errorf("opening browser: %w", err)
+			}
+			return nil
+		}
+
 		pr, err := client.GetPullRequest(ctx, project, repo, prID)
 		if err != nil {
 			return err
+		}
+
+		if jsonOutput {
+			return json.NewEncoder(os.Stdout).Encode(pr)
 		}
 
 		fmt.Printf("PR #%d: %s\n", pr.ID, pr.Title)
@@ -139,6 +202,7 @@ var prViewCmd = &cobra.Command{
 		fmt.Printf("To: %s\n", pr.ToRef.DisplayID)
 		fmt.Printf("Created: %s\n", time.Unix(pr.CreatedDate/1000, 0).Format("2006-01-02 15:04:05"))
 		fmt.Printf("Updated: %s\n", time.Unix(pr.UpdatedDate/1000, 0).Format("2006-01-02 15:04:05"))
+		fmt.Printf("URL: %s\n", prURL)
 
 		if pr.Description != "" {
 			fmt.Printf("\nDescription:\n%s\n", pr.Description)
@@ -261,6 +325,11 @@ func init() {
 	prListCmd.Flags().String("author", "", "Filter by author (@me for your PRs)")
 	prListCmd.Flags().String("base", "", "Filter by base branch")
 	prListCmd.Flags().String("head", "", "Filter by head branch")
+	prListCmd.Flags().Bool("json", false, "Output as JSON")
+	prListCmd.Flags().BoolP("web", "w", false, "Open in browser")
+
+	prViewCmd.Flags().Bool("json", false, "Output as JSON")
+	prViewCmd.Flags().BoolP("web", "w", false, "Open in browser")
 }
 
 func getClient() (*api.BitbucketClient, error) {
@@ -269,4 +338,24 @@ func getClient() (*api.BitbucketClient, error) {
 		return nil, fmt.Errorf("failed to get Bitbucket client: %w (hint: set credentials in config file under 'bitbucket' section)", err)
 	}
 	return client, nil
+}
+
+func normalizeBranchName(s string) string {
+	s = strings.TrimSpace(s)
+	s = strings.TrimPrefix(s, "refs/heads/")
+	return s
+}
+
+func branchMatches(ref api.Ref, want string) bool {
+	want = normalizeBranchName(want)
+	if want == "" {
+		return true
+	}
+	if strings.EqualFold(normalizeBranchName(ref.DisplayID), want) {
+		return true
+	}
+	if strings.EqualFold(normalizeBranchName(ref.ID), want) {
+		return true
+	}
+	return false
 }
