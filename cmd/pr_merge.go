@@ -3,24 +3,36 @@ package cmd
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
-	"github.com/lroolle/atlas-cli/internal/cmdutil"
 	"github.com/spf13/cobra"
 )
 
 var prMergeCmd = &cobra.Command{
-	Use:   "merge [project/repo] [pr-id]",
+	Use:   "merge [project/repo] <pr-id>",
 	Short: "Merge a pull request",
-	Args:  cobra.ExactArgs(2),
+	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
-		parts := strings.Split(args[0], "/")
-		if len(parts) != 2 {
-			return fmt.Errorf("invalid format: use PROJECT/REPO")
+
+		var project, repo string
+		var prIDStr string
+		if len(args) == 2 {
+			var err error
+			project, repo, err = parseRepoArg(args[0])
+			if err != nil {
+				return err
+			}
+			prIDStr = args[1]
+		} else {
+			var err error
+			project, repo, err = parseRepoArg("")
+			if err != nil {
+				return fmt.Errorf("PR ID required: %w", err)
+			}
+			prIDStr = args[0]
 		}
 
-		prID, err := strconv.Atoi(args[1])
+		prID, err := strconv.Atoi(prIDStr)
 		if err != nil {
 			return fmt.Errorf("invalid PR ID: %v", err)
 		}
@@ -29,7 +41,6 @@ var prMergeCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		project, repo := parts[0], parts[1]
 
 		// Get PR details first
 		pr, err := client.GetPullRequest(ctx, project, repo, prID)
@@ -41,9 +52,9 @@ var prMergeCmd = &cobra.Command{
 			return fmt.Errorf("PR #%d is not open (state: %s)", prID, pr.State)
 		}
 
-		canMerge, err := cmd.Flags().GetBool("force")
-		cmdutil.ExitIfError(err)
-		if !canMerge {
+		force, _ := cmd.Flags().GetBool("force")
+		deleteBranch, _ := cmd.Flags().GetBool("delete-branch")
+		if !force {
 			// Check for approvals
 			hasApproval := false
 			for _, reviewer := range pr.Reviewers {
@@ -61,6 +72,15 @@ var prMergeCmd = &cobra.Command{
 		// Merge the PR
 		if err := client.MergePullRequest(ctx, project, repo, prID, pr.Version); err != nil {
 			return fmt.Errorf("merging PR: %w", err)
+		}
+
+		if deleteBranch {
+			sourceProject := pr.FromRef.Repository.Project.Key
+			sourceRepo := pr.FromRef.Repository.Slug
+			sourceBranch := pr.FromRef.ID
+			if err := client.DeleteBranch(ctx, sourceProject, sourceRepo, sourceBranch); err != nil {
+				return fmt.Errorf("merged PR #%d but failed to delete branch %s/%s %s: %w", prID, sourceProject, sourceRepo, sourceBranch, err)
+			}
 		}
 
 		fmt.Printf("✓ Merged PR #%d: %s\n", prID, pr.Title)

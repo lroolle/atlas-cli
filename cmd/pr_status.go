@@ -24,7 +24,7 @@ var prStatusCmd = &cobra.Command{
 		project, repo, err := parseRepoArg("")
 		if err != nil {
 			fmt.Printf("No default repository configured: %v\n", err)
-			fmt.Println("Use 'atlas pr list PROJECT/REPO' instead.")
+			fmt.Println("Use 'atl pr list PROJECT/REPO' instead.")
 			return nil
 		}
 

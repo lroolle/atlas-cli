@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/url"
 	"strconv"
+	"strings"
 )
 
 type BitbucketClient struct {
@@ -151,11 +152,13 @@ func (c *BitbucketClient) GetPullRequest(ctx context.Context, project, repo stri
 func (c *BitbucketClient) GetPullRequestDiff(ctx context.Context, project, repo string, prID int) (string, error) {
 	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests/%d/diff", project, repo, prID)
 
-	resp, err := c.doRequest(ctx, "GET", path, nil)
+	resp, err := c.doRequestWithAccept(ctx, "GET", path, nil, "text/plain")
+	if resp != nil {
+		defer resp.Body.Close()
+	}
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -200,16 +203,11 @@ func (c *BitbucketClient) ListCommits(ctx context.Context, project, repo string,
 }
 
 func (c *BitbucketClient) MergePullRequest(ctx context.Context, project, repo string, prID int, version int) error {
-	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests/%d/merge", project, repo, prID)
-
-	body := map[string]interface{}{
-		"version": version,
-	}
-
-	return c.Post(ctx, path, body, nil)
+	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests/%d/merge?version=%d", project, repo, prID, version)
+	return c.Post(ctx, path, nil, nil)
 }
 
-func (c *BitbucketClient) CreatePullRequest(ctx context.Context, project, repo string, title, description, fromBranch, toBranch string) (*PullRequest, error) {
+func (c *BitbucketClient) CreatePullRequest(ctx context.Context, project, repo string, title, description, fromBranch, toBranch string, reviewers []string) (*PullRequest, error) {
 	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests", project, repo)
 
 	body := map[string]interface{}{
@@ -235,6 +233,16 @@ func (c *BitbucketClient) CreatePullRequest(ctx context.Context, project, repo s
 		},
 	}
 
+	if len(reviewers) > 0 {
+		var reviewerList []map[string]interface{}
+		for _, r := range reviewers {
+			reviewerList = append(reviewerList, map[string]interface{}{
+				"user": map[string]string{"name": r},
+			})
+		}
+		body["reviewers"] = reviewerList
+	}
+
 	var pr PullRequest
 	err := c.Post(ctx, path, body, &pr)
 	if err != nil {
@@ -242,4 +250,237 @@ func (c *BitbucketClient) CreatePullRequest(ctx context.Context, project, repo s
 	}
 
 	return &pr, nil
+}
+
+type Change struct {
+	ContentID        string `json:"contentId"`
+	FromHash         string `json:"fromHash"`
+	ToHash           string `json:"toHash"`
+	Path             Path   `json:"path"`
+	Executable       bool   `json:"executable"`
+	PercentUnchanged int    `json:"percentUnchanged"`
+	Type             string `json:"type"`
+	NodeType         string `json:"nodeType"`
+	SrcPath          *Path  `json:"srcPath,omitempty"`
+}
+
+type Path struct {
+	Components []string `json:"components"`
+	Parent     string   `json:"parent"`
+	Name       string   `json:"name"`
+	ToString   string   `json:"toString"`
+}
+
+type MergeResult struct {
+	CanMerge   bool   `json:"canMerge"`
+	Conflicted bool   `json:"conflicted"`
+	Outcome    string `json:"outcome"`
+	Vetoes     []Veto `json:"vetoes"`
+}
+
+type Veto struct {
+	SummaryMessage  string `json:"summaryMessage"`
+	DetailedMessage string `json:"detailedMessage"`
+}
+
+type Activity struct {
+	ID          int      `json:"id"`
+	CreatedDate int64    `json:"createdDate"`
+	User        User     `json:"user"`
+	Action      string   `json:"action"`
+	Comment     *Comment `json:"comment,omitempty"`
+}
+
+type UpdatePROptions struct {
+	Title       string
+	Description string
+	ToRef       string
+	Reviewers   []string
+	Version     int
+}
+
+func (c *BitbucketClient) ApprovePullRequest(ctx context.Context, project, repo string, prID int) error {
+	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests/%d/approve", project, repo, prID)
+	return c.Post(ctx, path, nil, nil)
+}
+
+func (c *BitbucketClient) UnapprovePullRequest(ctx context.Context, project, repo string, prID int) error {
+	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests/%d/approve", project, repo, prID)
+	return c.Delete(ctx, path)
+}
+
+func (c *BitbucketClient) SetReviewerStatus(ctx context.Context, project, repo string, prID int, status string) error {
+	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests/%d/participants/%s", project, repo, prID, c.Username)
+	body := map[string]interface{}{
+		"status": status,
+	}
+	return c.Put(ctx, path, body, nil)
+}
+
+func (c *BitbucketClient) DeclinePullRequest(ctx context.Context, project, repo string, prID, version int) error {
+	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests/%d/decline?version=%d", project, repo, prID, version)
+	return c.Post(ctx, path, nil, nil)
+}
+
+func (c *BitbucketClient) ReopenPullRequest(ctx context.Context, project, repo string, prID, version int) error {
+	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests/%d/reopen?version=%d", project, repo, prID, version)
+	return c.Post(ctx, path, nil, nil)
+}
+
+func (c *BitbucketClient) UpdatePullRequest(ctx context.Context, project, repo string, prID int, opts UpdatePROptions) (*PullRequest, error) {
+	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests/%d", project, repo, prID)
+
+	body := map[string]interface{}{
+		"version": opts.Version,
+	}
+
+	if opts.Title != "" {
+		body["title"] = opts.Title
+	}
+	if opts.Description != "" {
+		body["description"] = opts.Description
+	}
+	if opts.ToRef != "" {
+		body["toRef"] = map[string]interface{}{
+			"id": fmt.Sprintf("refs/heads/%s", opts.ToRef),
+		}
+	}
+	if len(opts.Reviewers) > 0 {
+		var reviewerList []map[string]interface{}
+		for _, r := range opts.Reviewers {
+			reviewerList = append(reviewerList, map[string]interface{}{
+				"user": map[string]string{"name": r},
+			})
+		}
+		body["reviewers"] = reviewerList
+	}
+
+	var pr PullRequest
+	err := c.Put(ctx, path, body, &pr)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pr, nil
+}
+
+func (c *BitbucketClient) GetPullRequestCommits(ctx context.Context, project, repo string, prID int, limit int) ([]Commit, error) {
+	params := url.Values{}
+	params.Set("limit", strconv.Itoa(limit))
+
+	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests/%d/commits", project, repo, prID)
+
+	var response struct {
+		Values []Commit `json:"values"`
+	}
+
+	err := c.Get(ctx, path, params, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return response.Values, nil
+}
+
+func (c *BitbucketClient) GetPullRequestChanges(ctx context.Context, project, repo string, prID int, limit int) ([]Change, error) {
+	params := url.Values{}
+	params.Set("limit", strconv.Itoa(limit))
+
+	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests/%d/changes", project, repo, prID)
+
+	var response struct {
+		Values []Change `json:"values"`
+	}
+
+	err := c.Get(ctx, path, params, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return response.Values, nil
+}
+
+func (c *BitbucketClient) CanMerge(ctx context.Context, project, repo string, prID int) (*MergeResult, error) {
+	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests/%d/merge", project, repo, prID)
+
+	var result MergeResult
+	err := c.Get(ctx, path, nil, &result)
+	if err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+func (c *BitbucketClient) RebasePullRequest(ctx context.Context, project, repo string, prID, version int) error {
+	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests/%d/rebase?version=%d", project, repo, prID, version)
+	return c.Post(ctx, path, nil, nil)
+}
+
+func (c *BitbucketClient) GetPullRequestActivity(ctx context.Context, project, repo string, prID int, limit int) ([]Activity, error) {
+	params := url.Values{}
+	params.Set("limit", strconv.Itoa(limit))
+
+	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests/%d/activities", project, repo, prID)
+
+	var response struct {
+		Values []Activity `json:"values"`
+	}
+
+	err := c.Get(ctx, path, params, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return response.Values, nil
+}
+
+func (c *BitbucketClient) AddReviewer(ctx context.Context, project, repo string, prID int, username string) error {
+	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests/%d/participants", project, repo, prID)
+	body := map[string]interface{}{
+		"user": map[string]string{"name": username},
+		"role": "REVIEWER",
+	}
+	return c.Post(ctx, path, body, nil)
+}
+
+func (c *BitbucketClient) RemoveReviewer(ctx context.Context, project, repo string, prID int, username string) error {
+	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests/%d/participants/%s", project, repo, prID, username)
+	return c.Delete(ctx, path)
+}
+
+func (c *BitbucketClient) GetCurrentBranch(ctx context.Context, project, repo string) (string, error) {
+	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/default-branch", project, repo)
+
+	var response struct {
+		DisplayID string `json:"displayId"`
+	}
+
+	err := c.Get(ctx, path, nil, &response)
+	if err != nil {
+		return "", err
+	}
+
+	return response.DisplayID, nil
+}
+
+func (c *BitbucketClient) GetDefaultBranch(ctx context.Context, project, repo string) (string, error) {
+	return c.GetCurrentBranch(ctx, project, repo)
+}
+
+type branchDeleteRequest struct {
+	Name     string `json:"name"`
+	EndPoint string `json:"endPoint,omitempty"`
+}
+
+func (c *BitbucketClient) DeleteBranch(ctx context.Context, project, repo, name string) error {
+	if name == "" {
+		return fmt.Errorf("branch name required")
+	}
+	if !strings.HasPrefix(name, "refs/") {
+		name = fmt.Sprintf("refs/heads/%s", name)
+	}
+
+	path := fmt.Sprintf("/rest/branch-utils/latest/projects/%s/repos/%s/branches", project, repo)
+	return c.DeleteWithBody(ctx, path, branchDeleteRequest{Name: name})
 }

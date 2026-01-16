@@ -1,0 +1,92 @@
+* [2024-12-18] Dev Log: Bitbucket PR Command Suite Implementation :FEATURE:
+
+** Context
+atlas-cli: Atlassian CLI tool for Bitbucket/Jira operations in Go
+
+** Why
+Add comprehensive PR workflow support - 13 new subcommands to enable scriptable Bitbucket PR management via CLI
+
+** What
+- Expanded =atl pr= from 6 to 19 subcommands with JSON output and browser integration
+- Added 15 API methods to api/bitbucket.go for PR lifecycle operations
+- Fixed 7 critical bugs post-implementation (unsafe merge, lying flags, resource leaks)
+- Created 6 new command files + cross-platform browser launcher
+
+** How
+*** New Commands
+| Command          | Flags                                      | Purpose                               |
+|------------------+--------------------------------------------+---------------------------------------|
+| create           | --title --body --fill --reviewer --web     | Create PR with auto-fill from commits |
+| checkout (co)    | --branch --detach --force                  | Safe checkout to new branch           |
+| review           | --approve --request-changes --comment --body | Review workflow                     |
+| approve          |                                            | Approve PR                            |
+| unapprove        |                                            | Remove approval                       |
+| decline (close)  | --comment                                  | Decline/close PR                      |
+| reopen           |                                            | Reopen declined PR                    |
+| edit             | --title --body --base --add/remove-reviewer | Update PR metadata                   |
+| rebase           |                                            | Server-side rebase                    |
+| commits          | --limit --json                             | List PR commits                       |
+| files (changes)  | --limit --json                             | Show PR file changes                  |
+| activity         | --limit --json                             | Show PR activity stream               |
+| can-merge        | --json                                     | Check merge preconditions             |
+
+*** Files Created
+#+BEGIN_SRC
+cmd/pr_create.go       # PR creation with --fill from git log
+cmd/pr_checkout.go     # Safe checkout to new branch
+cmd/pr_review.go       # Review workflow (approve/unapprove/review)
+cmd/pr_lifecycle.go    # State transitions (decline/reopen/rebase)
+cmd/pr_edit.go         # Metadata updates (title/body/reviewers)
+cmd/pr_info.go         # Inspection (commits/files/activity/can-merge)
+cmd/browser.go         # Cross-platform browser launcher
+#+END_SRC
+
+*** API Methods Added (api/bitbucket.go)
+#+BEGIN_SRC go
+// Lifecycle
+ApprovePullRequest, UnapprovePullRequest
+SetReviewerStatus, DeclinePullRequest, ReopenPullRequest
+
+// Metadata
+UpdatePullRequest, AddReviewer, RemoveReviewer
+
+// Inspection
+GetPullRequestCommits, GetPullRequestChanges
+GetPullRequestActivity, CanMerge
+
+// Operations
+RebasePullRequest, DeleteBranch, GetDefaultBranch
+
+// Client primitives (api/client.go)
+doRequestWithAccept, DeleteWithBody
+#+END_SRC
+
+*** Bugs Fixed
+| Bug | Fix |
+|-----+-----|
+| --delete-branch flag declared but not implemented | Wire up DeleteBranch API call |
+| --base/--head flags declared but not used | Implement branch filtering with normalization |
+| pr checkout merging into current branch | Always create new branch, fail on diverge |
+| --web and --json allowed together | Make mutually exclusive |
+| GetPullRequestDiff response body leak | Close body before error check, use text/plain Accept |
+| pr review --comment allowed without --body | Require --body when --comment specified |
+| openBrowser only worked on macOS | Add linux (xdg-open) and windows support |
+
+** Lessons Learned
+1. *No Lying Flags* - Declaring a flag without implementing it is worse than not having it
+2. *Git Ops Must Be Safe* - Never auto-merge into current branch
+3. *Exclusive Output Modes* - --web and --json don't mix
+4. *HTTP Hygiene* - Close bodies on error paths, set correct Accept header
+5. *Flag Validation* - Enforce required combinations (--comment needs --body)
+6. *Cross-Platform* - Don't assume macOS =open= command exists
+7. *Normalize Inputs* - Handle refs/heads/ prefix in branch names
+
+** Result
+19 PR subcommands operational with --json for scripting and --web for browser integration.
+All 7 post-implementation bugs resolved.
+
+** Next Steps
+- [ ] Add pagination for commits/files/activity
+- [ ] Add unit tests for API methods
+- [ ] Consider pr watch/unwatch (low priority)
+- [ ] Consider pr auto-merge settings (low priority)
