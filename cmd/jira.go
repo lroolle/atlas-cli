@@ -263,6 +263,18 @@ var issueViewCmd = &cobra.Command{
 			fmt.Printf("\nDescription:\n%s\n", issue.Fields.Description)
 		}
 
+		if issue.Fields.Parent != nil {
+			fmt.Printf("\nParent: %s (%s)\n", issue.Fields.Parent.Key, issue.Fields.Parent.Fields.Summary)
+		}
+
+		if len(issue.Fields.Subtasks) > 0 {
+			fmt.Printf("\nSubtasks (%d):\n", len(issue.Fields.Subtasks))
+			for _, st := range issue.Fields.Subtasks {
+				status := st.Fields.Status.Name
+				fmt.Printf("  %s [%s] %s\n", st.Key, status, st.Fields.Summary)
+			}
+		}
+
 		if len(issue.Fields.IssueLinks) > 0 {
 			fmt.Printf("\nIssue Links:\n")
 			for _, link := range issue.Fields.IssueLinks {
