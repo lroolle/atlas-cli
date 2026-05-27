@@ -42,6 +42,7 @@ type IssueFields struct {
 	Project     JiraProject `json:"project"`
 	IssueLinks  []IssueLink `json:"issuelinks,omitempty"`
 	Parent      *Issue      `json:"parent,omitempty"`
+	Subtasks    []Issue     `json:"subtasks,omitempty"`
 }
 
 type JiraProject struct {
