@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -330,7 +331,41 @@ var issueTransitionCmd = &cobra.Command{
 			return fmt.Errorf("transition '%s' not found", args[1])
 		}
 
-		err = client.TransitionIssue(ctx, issueKey, targetTransition.ID)
+		fields := make(map[string]interface{})
+
+		if r, _ := cmd.Flags().GetString("resolution"); r != "" {
+			fields["resolution"] = map[string]string{"name": r}
+		}
+
+		if fv, _ := cmd.Flags().GetStringSlice("fix-version"); len(fv) > 0 {
+			versions := make([]map[string]string, len(fv))
+			for i, v := range fv {
+				versions[i] = map[string]string{"name": v}
+			}
+			fields["fixVersions"] = versions
+		}
+
+		if rawFields, _ := cmd.Flags().GetStringArray("field"); len(rawFields) > 0 {
+			for _, f := range rawFields {
+				parts := strings.SplitN(f, "=", 2)
+				if len(parts) != 2 {
+					return fmt.Errorf("invalid --field format %q, expected key=value", f)
+				}
+				val := parts[1]
+				if strings.HasPrefix(val, "[") || strings.HasPrefix(val, "{") {
+					var parsed interface{}
+					if err := json.Unmarshal([]byte(val), &parsed); err == nil {
+						fields[parts[0]] = parsed
+					} else {
+						fields[parts[0]] = val
+					}
+				} else {
+					fields[parts[0]] = val
+				}
+			}
+		}
+
+		err = client.TransitionIssue(ctx, issueKey, targetTransition.ID, fields)
 		if err != nil {
 			return err
 		}
@@ -457,6 +492,9 @@ func init() {
 	issueCmd.AddCommand(issueListCmd)
 	issueCmd.AddCommand(issueViewCmd)
 	issueCmd.AddCommand(issueTransitionCmd)
+	issueTransitionCmd.Flags().StringP("resolution", "R", "", "Resolution name (e.g. Done, Won't Fix)")
+	issueTransitionCmd.Flags().StringSlice("fix-version", nil, "Fix version(s) to set")
+	issueTransitionCmd.Flags().StringArray("field", nil, "Additional fields as key=value (repeatable)")
 	issueCmd.AddCommand(issueCommentCmd)
 	issueCmd.AddCommand(issueCommentsCmd)
 	issueCmd.AddCommand(issuePrsCmd)

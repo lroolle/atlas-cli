@@ -154,13 +154,16 @@ func (c *JiraClient) GetTransitions(ctx context.Context, issueKey string) ([]Tra
 	return response.Transitions, nil
 }
 
-func (c *JiraClient) TransitionIssue(ctx context.Context, issueKey string, transitionID string) error {
+func (c *JiraClient) TransitionIssue(ctx context.Context, issueKey string, transitionID string, fields map[string]interface{}) error {
 	path := fmt.Sprintf("/rest/api/2/issue/%s/transitions", issueKey)
 
 	body := map[string]interface{}{
 		"transition": map[string]string{
 			"id": transitionID,
 		},
+	}
+	if len(fields) > 0 {
+		body["fields"] = fields
 	}
 
 	return c.Post(ctx, path, body, nil)
