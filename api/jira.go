@@ -268,6 +268,46 @@ func (c *JiraClient) GetRepositoryInfo(ctx context.Context, issueKey string) (*D
 	return &devInfo, nil
 }
 
+type CreatedIssue struct {
+	ID   string `json:"id"`
+	Key  string `json:"key"`
+	Self string `json:"self"`
+}
+
+func (c *JiraClient) CreateIssue(ctx context.Context, fields map[string]interface{}) (*CreatedIssue, error) {
+	body := map[string]interface{}{
+		"fields": fields,
+	}
+
+	var created CreatedIssue
+	err := c.Post(ctx, "/rest/api/2/issue", body, &created)
+	if err != nil {
+		return nil, err
+	}
+
+	return &created, nil
+}
+
+type JiraField struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Custom bool   `json:"custom"`
+	Schema struct {
+		Type   string `json:"type"`
+		Custom string `json:"custom"`
+	} `json:"schema"`
+}
+
+func (c *JiraClient) GetFields(ctx context.Context) ([]JiraField, error) {
+	var fields []JiraField
+	err := c.Get(ctx, "/rest/api/2/field", nil, &fields)
+	if err != nil {
+		return nil, err
+	}
+
+	return fields, nil
+}
+
 func (c *JiraClient) UpdateIssue(ctx context.Context, issueKey string, fields map[string]interface{}) error {
 	path := fmt.Sprintf("/rest/api/2/issue/%s", issueKey)
 
