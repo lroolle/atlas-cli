@@ -101,10 +101,22 @@ atl page list ~john.doe        # WRONG
 # Positional arg, not --space
 atl page list '~john.doe'      # RIGHT
 atl page list --space SPACE    # WRONG
-
-# No CDATA in Confluence storage
-<pre>code</pre>                # RIGHT
-<![CDATA[code]]>               # WRONG
 ```
 
-Read `references/confluence-guidelines.md` before editing pages.
+## Confluence Pages -- Format Choice
+
+**Default to storage format (.html) for pages with code blocks or macros.**
+The markdown converter has known bugs: unescaped `&`, `<`, `>` in code fences
+cause HTTP 400. Use CDATA in storage format to protect special chars:
+
+```html
+<ac:structured-macro ac:name="code">
+  <ac:parameter ac:name="language">bash</ac:parameter>
+  <ac:plain-text-body><![CDATA[PASS='foo&bar']]></ac:plain-text-body>
+</ac:structured-macro>
+```
+
+Bare URLs are NOT auto-linked -- always use `<a href="...">text</a>`.
+
+Read `references/confluence-guidelines.md` for full layout patterns, panel macros,
+tables, and known bugs before creating or editing pages.
