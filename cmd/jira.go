@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -26,7 +25,7 @@ var issueListCmd = &cobra.Command{
 	Long: `List JIRA issues with various filters.
 
 You can combine flags to create complex queries:
-  atl issue list -t Bug -s Open -e GAUSS-18421
+  atl issue list -t Bug -s Open -e MYPROJ-100
   atl issue list -a me -y High --label backend
 
 Use ~ prefix for negation (quote to prevent shell expansion):
@@ -34,7 +33,7 @@ Use ~ prefix for negation (quote to prevent shell expansion):
   atl issue list --label '~wontfix'    # exclude label`,
 	Example: `  atl issue list
   atl issue list -t Bug -s Open
-  atl issue list -e GAUSS-18421 -a me
+  atl issue list -e MYPROJ-100 -a me
   atl issue list -e 18421              # auto-prefix with default project
   atl issue list -q "created >= -7d"
   atl issue list --order-by updated --reverse`,
@@ -292,89 +291,6 @@ var issueViewCmd = &cobra.Command{
 	},
 }
 
-var issueTransitionCmd = &cobra.Command{
-	Use:   "transition [issue-key] [transition-name]",
-	Short: "Transition a JIRA issue to a new status",
-	Args:  cobra.RangeArgs(1, 2),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx := cmd.Context()
-
-		client, err := api.GetJiraClient()
-		cmdutil.ExitIfError(err)
-
-		issueKey := args[0]
-
-		transitions, err := client.GetTransitions(ctx, issueKey)
-		if err != nil {
-			return err
-		}
-
-		if len(args) == 1 {
-			fmt.Println("Available transitions:")
-			for _, t := range transitions {
-				fmt.Printf("  %s -> %s\n", t.Name, t.To.Name)
-			}
-			return nil
-		}
-
-		transitionName := strings.ToLower(args[1])
-		var targetTransition *api.Transition
-
-		for _, t := range transitions {
-			if strings.ToLower(t.Name) == transitionName || strings.ToLower(t.To.Name) == transitionName {
-				targetTransition = &t
-				break
-			}
-		}
-
-		if targetTransition == nil {
-			return fmt.Errorf("transition '%s' not found", args[1])
-		}
-
-		fields := make(map[string]interface{})
-
-		if r, _ := cmd.Flags().GetString("resolution"); r != "" {
-			fields["resolution"] = map[string]string{"name": r}
-		}
-
-		if fv, _ := cmd.Flags().GetStringSlice("fix-version"); len(fv) > 0 {
-			versions := make([]map[string]string, len(fv))
-			for i, v := range fv {
-				versions[i] = map[string]string{"name": v}
-			}
-			fields["fixVersions"] = versions
-		}
-
-		if rawFields, _ := cmd.Flags().GetStringArray("field"); len(rawFields) > 0 {
-			for _, f := range rawFields {
-				parts := strings.SplitN(f, "=", 2)
-				if len(parts) != 2 {
-					return fmt.Errorf("invalid --field format %q, expected key=value", f)
-				}
-				val := parts[1]
-				if strings.HasPrefix(val, "[") || strings.HasPrefix(val, "{") {
-					var parsed interface{}
-					if err := json.Unmarshal([]byte(val), &parsed); err == nil {
-						fields[parts[0]] = parsed
-					} else {
-						fields[parts[0]] = val
-					}
-				} else {
-					fields[parts[0]] = val
-				}
-			}
-		}
-
-		err = client.TransitionIssue(ctx, issueKey, targetTransition.ID, fields)
-		if err != nil {
-			return err
-		}
-
-		fmt.Printf("Issue %s transitioned to %s\n", issueKey, targetTransition.To.Name)
-		return nil
-	},
-}
-
 var issueCommentCmd = &cobra.Command{
 	Use:   "comment [issue-key] [comment]",
 	Short: "Add a comment to a JIRA issue",
@@ -494,7 +410,12 @@ func init() {
 	issueCmd.AddCommand(issueTransitionCmd)
 	issueTransitionCmd.Flags().StringP("resolution", "R", "", "Resolution name (e.g. Done, Won't Fix)")
 	issueTransitionCmd.Flags().StringSlice("fix-version", nil, "Fix version(s) to set")
-	issueTransitionCmd.Flags().StringArray("field", nil, "Additional fields as key=value (repeatable)")
+	issueTransitionCmd.Flags().StringArrayP("field", "F", nil, "Screen field as 'name=value' or 'id=value' (repeatable, comma-separated for multi-select)")
+	issueTransitionCmd.Flags().StringP("comment", "m", "", "Comment to add with the transition")
+	issueTransitionCmd.Flags().StringP("time-spent", "T", "", "Log work with the transition (e.g. 2h, 30m, 1d)")
+	issueTransitionCmd.Flags().Bool("json", false, "Output transitions as JSON (list mode)")
+	issueTransitionCmd.Flags().Bool("dry-run", false, "Print the transition payload without executing")
+	issueTransitionCmd.Flags().Bool("no-defaults", false, "Ignore jira.transition_defaults from config")
 	issueCmd.AddCommand(issueCommentCmd)
 	issueCmd.AddCommand(issueCommentsCmd)
 	issueCmd.AddCommand(issuePrsCmd)
