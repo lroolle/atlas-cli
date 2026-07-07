@@ -15,9 +15,10 @@ atl
 ├── issue (jira)
 │   ├── list (ls, search) [text]      # -t -s[] -y -a -r -e -C -l[] -p -q --order-by --reverse --limit
 │   ├── view [key]
+│   ├── create                        # -t -s -P -y -a -e --sprint --story-points --field --json
 │   ├── comment [key] [text]
 │   ├── comments [key]
-│   ├── transition [key] [name?]      # Omit name to list available
+│   ├── transition (move, mv) [key] [name?]  # -R -F[] -T -m --fix-version --json
 │   └── prs [key]                     # Linked pull requests
 ├── page (confluence)
 │   ├── list [space]                  # --type --limit
@@ -55,6 +56,50 @@ atl issue list -q "created >= -7d"    # Raw JQL
 | `-a` | me, none, x, username |
 | `-e` | Epic key (auto-prefixes project) |
 | `--order-by` | created, updated, priority, status, key, assignee, reporter, summary |
+
+## Jira Issue Create
+
+```bash
+# Story with epic/sprint/points (agile field IDs auto-resolved per instance)
+atl issue create -t Story -s "story title" -e MYPROJ-100 --sprint 1946 --story-points 3
+
+# Sub-task under a story (subtask type names are server-specific)
+atl issue create -t Sub-task -P MYPROJ-123 -y Major -s "dev subtask"
+
+atl issue create -t Bug -s "crash on empty input" -y Critical -a me
+atl issue create -t Task -s "x" --field 'customfield_10001={"value":"internal"}' --json
+```
+
+Pitfalls: sub-tasks INHERIT sprint from parent (passing `--sprint` gets a
+400 — omit it). Dedup first: `atl issue view <parent>` shows existing
+subtasks. `--json` prints `{key,id,url}` for scripting.
+
+## Jira Workflow Transitions
+
+```bash
+atl issue transition MYPROJ-123                    # List transitions + required fields
+atl issue transition MYPROJ-123 --json             # Full field metadata (schema, allowed values)
+atl issue transition MYPROJ-123 "Start Progress"   # By name, target status, id, or unique substring
+atl issue transition MYPROJ-123 resolve -R Done --fix-version 1.2.0 -T 2h \
+  -F "Root Cause=config error" -m "merged in PR #123"
+```
+
+| Flag | Purpose |
+|------|---------|
+| `-R` | Resolution (required on Resolve/Close) |
+| `--fix-version` | Fix Version/s |
+| `-T` | Log work, e.g. 2h, 30m (validators often demand Time Spent) |
+| `-F` | Screen field by display name or id; values coerced from schema; repeatable; ASCII comma = multi-select separator; cascading selects as "Parent / Child" |
+| `-m` | Comment posted with the transition |
+| `--dry-run` | Print the exact POST body without transitioning |
+| `--no-defaults` | Ignore jira.transition_defaults from config |
+
+Workflow validators require fields the API never marks required — the
+400 names them; add the flags and retry. Put team-constant field values
+in `jira.transition_defaults` (config) so the CLI only carries what
+varies per issue. Read `references/jira-workflow.md` for the discovery
+methodology and config semantics BEFORE transitioning issues on an
+instance whose workflow you haven't mapped.
 
 ## Confluence Page Search
 
