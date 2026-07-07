@@ -99,9 +99,37 @@ type LinkType struct {
 }
 
 type Transition struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	To   Status `json:"to"`
+	ID     string                     `json:"id"`
+	Name   string                     `json:"name"`
+	To     Status                     `json:"to"`
+	Fields map[string]TransitionField `json:"fields,omitempty"`
+}
+
+type TransitionField struct {
+	Required      bool             `json:"required"`
+	Name          string           `json:"name"`
+	Schema        TransitionSchema `json:"schema"`
+	AllowedValues []AllowedValue   `json:"allowedValues,omitempty"`
+}
+
+type TransitionSchema struct {
+	Type  string `json:"type"`
+	Items string `json:"items,omitempty"`
+}
+
+type AllowedValue struct {
+	ID    string `json:"id,omitempty"`
+	Name  string `json:"name,omitempty"`
+	Value string `json:"value,omitempty"`
+}
+
+// Display returns the human-facing label of an allowed value: option fields
+// use "value", most other types (resolution, version, ...) use "name".
+func (v AllowedValue) Display() string {
+	if v.Value != "" {
+		return v.Value
+	}
+	return v.Name
 }
 
 type SearchResult struct {
@@ -142,11 +170,14 @@ func (c *JiraClient) GetIssue(ctx context.Context, issueKey string) (*Issue, err
 func (c *JiraClient) GetTransitions(ctx context.Context, issueKey string) ([]Transition, error) {
 	path := fmt.Sprintf("/rest/api/2/issue/%s/transitions", issueKey)
 
+	params := url.Values{}
+	params.Set("expand", "transitions.fields")
+
 	var response struct {
 		Transitions []Transition `json:"transitions"`
 	}
 
-	err := c.Get(ctx, path, nil, &response)
+	err := c.Get(ctx, path, params, &response)
 	if err != nil {
 		return nil, err
 	}
@@ -154,16 +185,46 @@ func (c *JiraClient) GetTransitions(ctx context.Context, issueKey string) ([]Tra
 	return response.Transitions, nil
 }
 
-func (c *JiraClient) TransitionIssue(ctx context.Context, issueKey string, transitionID string) error {
-	path := fmt.Sprintf("/rest/api/2/issue/%s/transitions", issueKey)
+// TransitionUpdate carries operations applied via the transition's
+// "update" block (as opposed to plain field values).
+type TransitionUpdate struct {
+	Comment   string
+	TimeSpent string // Jira duration, e.g. "2h", "30m", "1d 4h"
+}
 
+// TransitionBody builds the request body POSTed to the transitions
+// endpoint; exposed so callers can show it verbatim (e.g. --dry-run).
+func TransitionBody(transitionID string, fields map[string]interface{}, update TransitionUpdate) map[string]interface{} {
 	body := map[string]interface{}{
 		"transition": map[string]string{
 			"id": transitionID,
 		},
 	}
+	if len(fields) > 0 {
+		body["fields"] = fields
+	}
 
-	return c.Post(ctx, path, body, nil)
+	upd := make(map[string]interface{})
+	if update.Comment != "" {
+		upd["comment"] = []map[string]interface{}{
+			{"add": map[string]string{"body": update.Comment}},
+		}
+	}
+	if update.TimeSpent != "" {
+		upd["worklog"] = []map[string]interface{}{
+			{"add": map[string]string{"timeSpent": update.TimeSpent}},
+		}
+	}
+	if len(upd) > 0 {
+		body["update"] = upd
+	}
+
+	return body
+}
+
+func (c *JiraClient) TransitionIssue(ctx context.Context, issueKey string, transitionID string, fields map[string]interface{}, update TransitionUpdate) error {
+	path := fmt.Sprintf("/rest/api/2/issue/%s/transitions", issueKey)
+	return c.Post(ctx, path, TransitionBody(transitionID, fields, update), nil)
 }
 
 func (c *JiraClient) AddComment(ctx context.Context, issueKey string, comment string) error {
@@ -263,6 +324,46 @@ func (c *JiraClient) GetRepositoryInfo(ctx context.Context, issueKey string) (*D
 	}
 
 	return &devInfo, nil
+}
+
+type CreatedIssue struct {
+	ID   string `json:"id"`
+	Key  string `json:"key"`
+	Self string `json:"self"`
+}
+
+func (c *JiraClient) CreateIssue(ctx context.Context, fields map[string]interface{}) (*CreatedIssue, error) {
+	body := map[string]interface{}{
+		"fields": fields,
+	}
+
+	var created CreatedIssue
+	err := c.Post(ctx, "/rest/api/2/issue", body, &created)
+	if err != nil {
+		return nil, err
+	}
+
+	return &created, nil
+}
+
+type JiraField struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Custom bool   `json:"custom"`
+	Schema struct {
+		Type   string `json:"type"`
+		Custom string `json:"custom"`
+	} `json:"schema"`
+}
+
+func (c *JiraClient) GetFields(ctx context.Context) ([]JiraField, error) {
+	var fields []JiraField
+	err := c.Get(ctx, "/rest/api/2/field", nil, &fields)
+	if err != nil {
+		return nil, err
+	}
+
+	return fields, nil
 }
 
 func (c *JiraClient) UpdateIssue(ctx context.Context, issueKey string, fields map[string]interface{}) error {

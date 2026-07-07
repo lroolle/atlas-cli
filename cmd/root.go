@@ -19,6 +19,10 @@ var rootCmd = &cobra.Command{
 	Short:   "CLI for Atlassian REST API",
 	Long:    `Atlas CLI provides command-line access to Atlassian Bitbucket, JIRA, and Confluence REST APIs`,
 	Version: version.Full(),
+	// Execute() prints the error once; without these cobra prints it a
+	// second time plus the full usage text on every runtime API error.
+	SilenceErrors: true,
+	SilenceUsage:  true,
 }
 
 func Execute() {
