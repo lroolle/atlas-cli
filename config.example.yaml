@@ -20,6 +20,25 @@ jira:
   default_project: MYPROJ       # Default project for issue commands
   # username: optional-different-username
 
+  # Team constants auto-filled on `issue transition`, keyed by issue type
+  # then transition name (matched case-insensitively). Use '*' as the
+  # issue-type key to apply to all types. Field keys are display names
+  # or IDs; values are coerced from the field schema (cascading selects
+  # use "Parent / Child"). CLI flags override; fields not on the
+  # transition screen are skipped. Special keys: "Time Spent" logs work,
+  # "Original Estimate" sets timetracking. Inspect the merged payload
+  # with --dry-run; disable with --no-defaults.
+  # transition_defaults:
+  #   Bug:
+  #     start progress:
+  #       Team Zone: Backend / Platform
+  #       Affects Version/s: 1.2.0
+  #       Story Points: 0
+  #       Original Estimate: 4h
+  #     resolve issue:
+  #       Fix Version/s: 1.2.0
+  #       Time Spent: 2h
+
 # Confluence configuration
 confluence:
   server: https://confluence.yourdomain.com
