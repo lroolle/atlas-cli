@@ -26,6 +26,23 @@ So the fluent loop is: attempt -> read the named fields from the error ->
 add flags -> retry. The tool optimizes that loop rather than pretending
 it can pre-validate.
 
+## Agent guardrails
+
+Transitions mutate team-visible state. Working agents follow these:
+
+1. List first (`atl issue transition <key>`) — see the real current
+   status and transitions. Never assume state; never hardcode IDs.
+2. `--dry-run` before the first real transition of a session or any
+   unfamiliar transition/type combo — inspect the merged payload.
+3. Only transition issues assigned to you or explicitly requested.
+4. On 400, add exactly the fields the error names and retry ONCE; if it
+   fails again, report instead of iterating blindly.
+5. Team constants belong in `jira.transition_defaults` config. If the
+   dry-run payload lacks expected defaults, the config block is missing
+   — say so rather than hand-typing values.
+6. Judgment fields (resolution, analysis text, checklist choices) must
+   reflect the actual work, not copied examples.
+
 ## Discovering your instance's workflow
 
 One-time, per project (agents: do this when the knowledge base has no
