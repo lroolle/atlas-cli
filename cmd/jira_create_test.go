@@ -9,7 +9,7 @@ import (
 
 func TestBuildIssueFieldsMinimal(t *testing.T) {
 	fields, err := buildIssueFields(issueCreateOptions{
-		Project: "GAUSS",
+		Project: "MYPROJ",
 		Type:    "Story",
 		Summary: "test story",
 	}, agileFieldIDs{})
@@ -18,7 +18,7 @@ func TestBuildIssueFieldsMinimal(t *testing.T) {
 	}
 
 	want := map[string]interface{}{
-		"project":   map[string]string{"key": "GAUSS"},
+		"project":   map[string]string{"key": "MYPROJ"},
 		"issuetype": map[string]string{"name": "Story"},
 		"summary":   "test story",
 	}
@@ -32,11 +32,11 @@ func TestBuildIssueFieldsValidation(t *testing.T) {
 		name string
 		opts issueCreateOptions
 	}{
-		{"missing type", issueCreateOptions{Project: "GAUSS", Summary: "s"}},
-		{"missing summary", issueCreateOptions{Project: "GAUSS", Type: "Story"}},
-		{"epic without resolved field", issueCreateOptions{Project: "GAUSS", Type: "Story", Summary: "s", Epic: "GAUSS-1"}},
-		{"sprint without resolved field", issueCreateOptions{Project: "GAUSS", Type: "Story", Summary: "s", Sprint: 7}},
-		{"bad raw field", issueCreateOptions{Project: "GAUSS", Type: "Story", Summary: "s", RawFields: []string{"noequals"}}},
+		{"missing type", issueCreateOptions{Project: "MYPROJ", Summary: "s"}},
+		{"missing summary", issueCreateOptions{Project: "MYPROJ", Type: "Story"}},
+		{"epic without resolved field", issueCreateOptions{Project: "MYPROJ", Type: "Story", Summary: "s", Epic: "MYPROJ-1"}},
+		{"sprint without resolved field", issueCreateOptions{Project: "MYPROJ", Type: "Story", Summary: "s", Sprint: 7}},
+		{"bad raw field", issueCreateOptions{Project: "MYPROJ", Type: "Story", Summary: "s", RawFields: []string{"noequals"}}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -49,9 +49,9 @@ func TestBuildIssueFieldsValidation(t *testing.T) {
 
 func TestBuildIssueFieldsSubtask(t *testing.T) {
 	fields, err := buildIssueFields(issueCreateOptions{
-		Project:  "GAUSS",
-		Type:     "Sub-dev-task",
-		Summary:  "【开发】dev work",
+		Project:  "MYPROJ",
+		Type:     "Sub-task",
+		Summary:  "dev subtask work",
 		Parent:   "24318",
 		Priority: "Major",
 	}, agileFieldIDs{})
@@ -60,8 +60,8 @@ func TestBuildIssueFieldsSubtask(t *testing.T) {
 	}
 
 	parent, ok := fields["parent"].(map[string]string)
-	if !ok || parent["key"] != "GAUSS-24318" {
-		t.Errorf("parent = %#v, want key GAUSS-24318 (auto-prefixed)", fields["parent"])
+	if !ok || parent["key"] != "MYPROJ-24318" {
+		t.Errorf("parent = %#v, want key MYPROJ-24318 (auto-prefixed)", fields["parent"])
 	}
 	priority, ok := fields["priority"].(map[string]string)
 	if !ok || priority["name"] != "Major" {
@@ -76,7 +76,7 @@ func TestBuildIssueFieldsAgile(t *testing.T) {
 		StoryPoints: "customfield_10103",
 	}
 	fields, err := buildIssueFields(issueCreateOptions{
-		Project:     "GAUSS",
+		Project:     "MYPROJ",
 		Type:        "Story",
 		Summary:     "agile story",
 		Epic:        "23743",
@@ -87,8 +87,8 @@ func TestBuildIssueFieldsAgile(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if fields["customfield_10501"] != "GAUSS-23743" {
-		t.Errorf("epic = %v, want GAUSS-23743", fields["customfield_10501"])
+	if fields["customfield_10501"] != "MYPROJ-23743" {
+		t.Errorf("epic = %v, want MYPROJ-23743", fields["customfield_10501"])
 	}
 	if fields["customfield_10401"] != 1946 {
 		t.Errorf("sprint = %v, want 1946", fields["customfield_10401"])
@@ -100,7 +100,7 @@ func TestBuildIssueFieldsAgile(t *testing.T) {
 
 func TestBuildIssueFieldsRawFieldJSON(t *testing.T) {
 	fields, err := buildIssueFields(issueCreateOptions{
-		Project: "GAUSS",
+		Project: "MYPROJ",
 		Type:    "Story",
 		Summary: "raw fields",
 		RawFields: []string{
