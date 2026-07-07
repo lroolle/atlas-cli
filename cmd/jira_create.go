@@ -52,8 +52,8 @@ parent, so --sprint is rejected by the server for sub-task types.
 
 Epic, sprint, and story points are stored in server-specific custom
 fields; they are resolved automatically from the JIRA field registry.`,
-	Example: `  atl issue create -t Story -s "【NPM.PO-XXX】story title" -e GAUSS-23743 --sprint 1946 --story-points 3
-  atl issue create -t Sub-dev-task -P GAUSS-24318 -s "【开发】dev subtask title"
+	Example: `  atl issue create -t Story -s "story title" -e MYPROJ-100 --sprint 1946 --story-points 3
+  atl issue create -t Sub-task -P MYPROJ-123 -s "dev subtask title"
   atl issue create -t Bug -s "crash on empty input" -y Critical -a me
   atl issue create -t Task -s "raw field example" --field 'customfield_10103=5'`,
 	Aliases: []string{"new"},

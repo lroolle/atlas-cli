@@ -27,14 +27,14 @@ func TestCreateIssue(t *testing.T) {
 			t.Fatalf("decoding request body: %v", err)
 		}
 		w.WriteHeader(http.StatusCreated)
-		_, _ = w.Write([]byte(`{"id":"100001","key":"GAUSS-1234","self":"https://jira.example.com/rest/api/2/issue/100001"}`))
+		_, _ = w.Write([]byte(`{"id":"100001","key":"MYPROJ-1234","self":"https://jira.example.com/rest/api/2/issue/100001"}`))
 	}))
 	defer server.Close()
 
 	client := newTestJiraClient(server)
 
 	fields := map[string]interface{}{
-		"project":   map[string]string{"key": "GAUSS"},
+		"project":   map[string]string{"key": "MYPROJ"},
 		"issuetype": map[string]string{"name": "Story"},
 		"summary":   "test story",
 	}
@@ -53,8 +53,8 @@ func TestCreateIssue(t *testing.T) {
 	if gotAuth != "Bearer token" {
 		t.Errorf("auth = %q, want Bearer token", gotAuth)
 	}
-	if created.Key != "GAUSS-1234" {
-		t.Errorf("key = %q, want GAUSS-1234", created.Key)
+	if created.Key != "MYPROJ-1234" {
+		t.Errorf("key = %q, want MYPROJ-1234", created.Key)
 	}
 	if created.ID != "100001" {
 		t.Errorf("id = %q, want 100001", created.ID)
