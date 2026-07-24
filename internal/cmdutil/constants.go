@@ -8,6 +8,7 @@ import (
 const (
 	DefaultLimit         = 25
 	DefaultChildrenLimit = 50
+	DefaultActivityLimit = 100
 
 	TitleTruncateShort  = 40
 	TitleTruncateNormal = 50

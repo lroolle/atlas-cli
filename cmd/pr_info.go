@@ -205,6 +205,9 @@ var prActivityCmd = &cobra.Command{
 			detail := ""
 			if a.Comment != nil {
 				detail = cmdutil.Truncate(a.Comment.Text, 60)
+				if loc := a.CommentAnchor.Location(); loc != "" {
+					detail = loc + "  " + detail
+				}
 			}
 			fmt.Printf("%s  %s  %s  %s\n", date, a.User.Name, action, detail)
 		}
