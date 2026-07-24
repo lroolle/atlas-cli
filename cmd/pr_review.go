@@ -16,8 +16,12 @@ Review actions:
   --approve (-a)           Approve the pull request
   --request-changes (-r)   Request changes (sets NEEDS_WORK status)
   --comment (-c)           Add a comment without changing approval status
+  --discard-pending        Drop your unpublished (pending) review comments
 
-If no action is specified, --comment is assumed when --body is provided.`,
+If no action is specified, --comment is assumed when --body is provided.
+
+Inline comments are posted with 'atl pr comment --file --line'. Pending
+comments drafted with '--pending' are published from the pull request page.`,
 	Args: cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
@@ -54,6 +58,18 @@ If no action is specified, --comment is assumed when --body is provided.`,
 		requestChanges, _ := cmd.Flags().GetBool("request-changes")
 		comment, _ := cmd.Flags().GetBool("comment")
 		body, _ := cmd.Flags().GetString("body")
+		discardPending, _ := cmd.Flags().GetBool("discard-pending")
+
+		if discardPending {
+			if approve || requestChanges || comment || body != "" {
+				return fmt.Errorf("--discard-pending cannot be combined with other review actions")
+			}
+			if err := client.DiscardPendingReview(ctx, project, repo, prID); err != nil {
+				return fmt.Errorf("discarding pending review: %w", err)
+			}
+			fmt.Printf("Discarded pending review comments on PR #%d\n", prID)
+			return nil
+		}
 
 		actionCount := 0
 		if approve {
@@ -220,4 +236,5 @@ func init() {
 	prReviewCmd.Flags().BoolP("request-changes", "r", false, "Request changes")
 	prReviewCmd.Flags().BoolP("comment", "c", false, "Add comment only")
 	prReviewCmd.Flags().StringP("body", "b", "", "Comment text")
+	prReviewCmd.Flags().Bool("discard-pending", false, "Discard your unpublished review comments")
 }

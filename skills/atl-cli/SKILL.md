@@ -33,7 +33,9 @@ atl
     ├── list [proj/repo]              # --state --author --base --head --limit
     ├── view [proj/repo] [id]
     ├── diff [proj/repo] [id]
-    ├── comment [proj/repo] [id] [text]
+    ├── comment [proj/repo] [id] [text]  # -b -F -f -L --side --reply --blocker --pending --batch --dry-run
+    ├── comments [proj/repo] [id]     # -f --pending --limit --json
+    ├── review [proj/repo] [id]       # -a -r -c -b --discard-pending
     ├── merge [proj/repo] [id]        # --force --delete-branch
     └── status                        # Your PRs & reviews
 ```
@@ -135,6 +137,49 @@ atl pr status
 ```
 
 | `--state` | OPEN, MERGED, DECLINED, ALL |
+
+## Inline Review Comments
+
+Anchor a comment to a line of the diff. `--line` counts in the NEW file;
+`--side old` targets a line the PR deletes. ADDED/REMOVED/CONTEXT and the
+file side are resolved from the diff -- never hand-write them.
+
+```bash
+atl pr comment PROJ/repo 140 -f src/app.py -L 42 -b "this leaks"       # inline
+atl pr comment PROJ/repo 140 -f src/app.py -L 42 --side old -b "why?"  # deleted line
+atl pr comment PROJ/repo 140 -f src/app.py -b "file-level note"        # whole file
+atl pr comment PROJ/repo 140 --reply 331 -b "fixed in a1b2c3d"     # thread reply
+atl pr comment PROJ/repo 140 --blocker -f src/app.py -L 42 -b "..."    # merge-blocking task
+atl pr comments PROJ/repo 140                                          # read the review back
+```
+
+Only lines the diff touches (changed lines plus surrounding context) can be
+anchored -- the error lists the file's commentable ranges. Reply IDs come from
+`atl pr comments`.
+
+### Agent review workflow
+
+Post a whole review from JSON. Anchors are all resolved before anything is
+posted, so a bad path or line cannot half-post a batch.
+
+```json
+[
+  {"file": "src/app.py", "line": 42, "body": "leaks here", "blocker": true},
+  {"file": "src/app.py", "line": 17, "side": "old", "body": "why drop this?"},
+  {"body": "NAK, see inline"}
+]
+```
+
+```bash
+atl pr comment PROJ/repo 140 --batch findings.json --dry-run   # check anchors first
+atl pr comment PROJ/repo 140 --batch findings.json --pending   # draft, nobody notified
+atl pr comments PROJ/repo 140 --pending                        # review the draft
+atl pr review PROJ/repo 140 --discard-pending                  # drop the draft
+```
+
+`--pending` comments stay invisible to everyone else until published from the
+PR page in the browser. Default to `--pending` for agent-authored reviews: a
+public comment notifies every reviewer and cannot be unsent.
 
 ## Pitfalls
 
