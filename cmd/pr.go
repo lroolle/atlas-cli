@@ -267,58 +267,11 @@ var prDiffCmd = &cobra.Command{
 	},
 }
 
-var prCommentCmd = &cobra.Command{
-	Use:   "comment [project/repo] [pr-id] [text]",
-	Short: "Add a comment to a pull request",
-	Args:  cobra.RangeArgs(2, 3),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx := cmd.Context()
-		var project, repo string
-		var prIDStr, text string
-
-		if len(args) == 3 {
-			var err error
-			project, repo, err = parseRepoArg(args[0])
-			if err != nil {
-				return err
-			}
-			prIDStr = args[1]
-			text = args[2]
-		} else {
-			var err error
-			project, repo, err = parseRepoArg("")
-			if err != nil {
-				return fmt.Errorf("PR ID and text required: %w", err)
-			}
-			prIDStr = args[0]
-			text = args[1]
-		}
-
-		prID, err := strconv.Atoi(prIDStr)
-		if err != nil {
-			return fmt.Errorf("invalid PR ID: %v", err)
-		}
-
-		client, err := getClient()
-		if err != nil {
-			return err
-		}
-		comment, err := client.AddPullRequestComment(ctx, project, repo, prID, text)
-		if err != nil {
-			return err
-		}
-
-		fmt.Printf("Comment added (ID: %d)\n", comment.ID)
-		return nil
-	},
-}
-
 func init() {
 	rootCmd.AddCommand(prCmd)
 	prCmd.AddCommand(prListCmd)
 	prCmd.AddCommand(prViewCmd)
 	prCmd.AddCommand(prDiffCmd)
-	prCmd.AddCommand(prCommentCmd)
 
 	prListCmd.Flags().String("state", "OPEN", "Filter by state (OPEN, MERGED, DECLINED, ALL)")
 	prListCmd.Flags().Int("limit", cmdutil.DefaultLimit, "Maximum number of results")

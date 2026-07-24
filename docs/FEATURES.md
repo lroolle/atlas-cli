@@ -72,7 +72,8 @@ What works right now.
 | `atl pr list [project/repo]` | List pull requests |
 | `atl pr view <project/repo> <id>` | View PR details |
 | `atl pr diff <project/repo> <id>` | Show PR diff |
-| `atl pr comment <project/repo> <id> <text>` | Add comment |
+| `atl pr comment <project/repo> <id> <text>` | Add comment, general or inline |
+| `atl pr comments <project/repo> <id>` | List comments grouped by file and line |
 | `atl pr merge <project/repo> <id>` | Merge PR |
 | `atl pr status` | Show PR status summary |
 
@@ -86,6 +87,43 @@ What works right now.
 **Merge options:**
 - `--force` - Merge without approvals
 - `--delete-branch` - Delete source branch after merge
+
+### Inline review comments
+
+`atl pr comment` anchors a comment to a line of the diff when given `--file`
+and `--line`, the same way the web UI does. The line type (ADDED, REMOVED,
+CONTEXT) and the file side are resolved from the pull request diff, so a path
+and a line number are enough:
+
+```bash
+atl pr comment MYPROJ/myrepo 140 -f src/app.js -L 543 -b "this allocation leaks"
+atl pr comment MYPROJ/myrepo 140 -f src/app.js -L 120 --side old -b "why drop this?"
+atl pr comment MYPROJ/myrepo 140 --reply 331 -b "fixed in a1b2c3d"
+```
+
+- `--line` counts in the new file; `--side old` targets a deleted line.
+- Only lines the diff touches can be anchored; the error lists the commentable
+  ranges of the file.
+- `--blocker` posts a task that blocks the merge.
+- `--pending` keeps the comment unpublished, visible only to you until you
+  publish the review from the pull request page. `atl pr review
+  --discard-pending` drops the drafts.
+- `--batch findings.json` posts a whole review at once, and `--dry-run` prints
+  the resolved anchors without posting. Every anchor is resolved before the
+  first comment is posted, so a bad path or line cannot half-post a batch.
+
+Batch entries are `{body, file, line, side, reply_to, blocker, pending}`:
+
+```json
+[
+  {"file": "src/app.js", "line": 543, "body": "this allocation leaks", "blocker": true},
+  {"file": "src/app.js", "line": 120, "side": "old", "body": "why drop this?"},
+  {"body": "NAK, see inline"}
+]
+```
+
+`atl pr comments` reads a review back, grouped by file and line, with the IDs
+`--reply` takes and `[TASK]`, `[PENDING]` and `[ORPHANED]` markers.
 
 ---
 

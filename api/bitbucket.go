@@ -94,12 +94,16 @@ type PagedResponse struct {
 }
 
 type Comment struct {
-	ID          int    `json:"id"`
-	Version     int    `json:"version"`
-	Text        string `json:"text"`
-	Author      User   `json:"author"`
-	CreatedDate int64  `json:"createdDate"`
-	UpdatedDate int64  `json:"updatedDate"`
+	ID          int            `json:"id"`
+	Version     int            `json:"version"`
+	Text        string         `json:"text"`
+	Author      User           `json:"author"`
+	CreatedDate int64          `json:"createdDate"`
+	UpdatedDate int64          `json:"updatedDate"`
+	Severity    string         `json:"severity,omitempty"`
+	State       string         `json:"state,omitempty"`
+	Anchor      *CommentAnchor `json:"anchor,omitempty"`
+	Comments    []Comment      `json:"comments,omitempty"`
 }
 
 type Commit struct {
@@ -168,20 +172,10 @@ func (c *BitbucketClient) GetPullRequestDiff(ctx context.Context, project, repo 
 	return string(body), nil
 }
 
+// AddPullRequestComment posts a general comment on a pull request. Use
+// CreatePullRequestComment for anchored comments, replies and tasks.
 func (c *BitbucketClient) AddPullRequestComment(ctx context.Context, project, repo string, prID int, text string) (*Comment, error) {
-	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests/%d/comments", project, repo, prID)
-
-	body := map[string]string{
-		"text": text,
-	}
-
-	var comment Comment
-	err := c.Post(ctx, path, body, &comment)
-	if err != nil {
-		return nil, err
-	}
-
-	return &comment, nil
+	return c.CreatePullRequestComment(ctx, project, repo, prID, CommentRequest{Text: text})
 }
 
 func (c *BitbucketClient) ListCommits(ctx context.Context, project, repo string, limit int) ([]Commit, error) {
@@ -289,6 +283,9 @@ type Activity struct {
 	User        User     `json:"user"`
 	Action      string   `json:"action"`
 	Comment     *Comment `json:"comment,omitempty"`
+	// CommentAnchor is where the activity feed reports a comment's anchor;
+	// Comment.Anchor is not populated on this endpoint.
+	CommentAnchor *CommentAnchor `json:"commentAnchor,omitempty"`
 }
 
 type UpdatePROptions struct {

@@ -297,6 +297,13 @@ From `docs/api-specs/bitbucketserver.906.postman.json`:
 | Get pull request activity | GET .../activity | ✓ |
 | Stream raw diff | GET .../diff | ✓ |
 | Change participant status | PUT .../participants/{user} | ✓ |
+| Add comment (general/file/line/reply/task) | POST .../comments | ✓ |
+| Get comments for a path | GET .../comments?path= | ✓ |
+| Structured diff (JSON) | GET .../diff (Accept: json) | ✓ |
+| Get pending review | GET .../review | ✓ |
+| Discard pending review | DELETE .../review | ✓ |
+| Complete (publish) review | PUT .../review | missing (UI only) |
+| Edit/delete a comment | PUT/DELETE .../comments/{id} | missing |
 | Watch/Unwatch | POST/DELETE .../watch | missing |
 | Auto-merge settings | GET/POST/DELETE .../auto-merge | missing |
 
@@ -494,10 +501,54 @@ Summary:
 
 ---
 
+---
+
+## Inline PR Comments (2026-07-24)
+
+`atl pr comment` could only post general PR comments; every review had to
+spell out `file:line` inside the comment text. Bitbucket Server anchors
+comments through `anchor: {path, line, lineType, fileType, diffType,
+fromHash, toHash}`, and the anchor must match the diff or the comment lands
+orphaned.
+
+**Anchor resolution.** Callers pass a path and a line number as they read it
+in the file. `api/bitbucket_diff.go` fetches the structured diff
+(`GET .../diff` with `Accept: application/json`) and derives lineType and
+fileType from the segment the line falls in. Two facts the fixture encodes,
+both observed on the live server:
+
+- Added lines carry a `source` number and removed lines a `destination`
+  number, so side selection must filter on segment type, not on which line
+  number is populated.
+- Only lines inside the diff (changed plus context) can be anchored. The
+  resolver reports the file's commentable ranges instead of posting an
+  anchor the server would orphan. Resolution retries once with a wider
+  context before failing.
+
+**Safety.** Batches resolve every anchor before posting the first comment, so
+a bad path cannot half-post a review. `--dry-run` prints resolved anchors.
+`--pending` drafts comments that only the author sees, which is the right
+default for agent-authored reviews: a public comment notifies every reviewer
+and cannot be unsent. Publishing a pending review (`PUT .../review`) is left
+to the web UI; the payload is undocumented in the bundled spec and is not
+worth guessing against a live team PR.
+
+| Date | Decision | Rationale |
+|------|----------|-----------|
+| 2026-07-24 | Resolve lineType/fileType from the diff, not from flags | Callers know the file, not the diff hunk shape |
+| 2026-07-24 | Fail on unanchorable lines instead of posting | Server silently orphans bad anchors |
+| 2026-07-24 | Resolve whole batch before posting any comment | Partial reviews are worse than none |
+| 2026-07-24 | Ship `--pending` + `--discard-pending`, not publish | Verifiable without notifying a team PR |
+| 2026-07-24 | Read comments via activities, not per-path | One request covers general, inline and replies |
+
+---
+
 ## Next Steps
 
 1. Add `page delete` command with confirmation
 2. Add `cmdutil.Confirm()` and spinner helpers
-3. Add `pr watch`/`unwatch` (low priority)
-4. Add `pr auto-merge` settings (low priority)
-5. Consider restructure after more commands exist
+3. Comment lifecycle: edit/delete (`PUT/DELETE .../comments/{id}`, needs version)
+4. Publish pending review (`PUT .../review`) once the payload is confirmed
+5. Add `pr watch`/`unwatch` (low priority)
+6. Add `pr auto-merge` settings (low priority)
+7. Consider restructure after more commands exist
