@@ -210,7 +210,11 @@ their surrounding context) can be anchored.`,
 
   # Post a whole review from JSON, checking the anchors first
   atl pr comment MYPROJ/myrepo 140 --batch findings.json --dry-run
-  atl pr comment MYPROJ/myrepo 140 --batch findings.json`,
+  atl pr comment MYPROJ/myrepo 140 --batch findings.json
+
+  # Correct or remove an existing comment (yours; pending or published)
+  atl pr comment MYPROJ/myrepo 140 --edit 331 -b "corrected text"
+  atl pr comment MYPROJ/myrepo 140 --delete 331`,
 	Args: cobra.RangeArgs(1, 3),
 	RunE: runPRComment,
 }
@@ -221,6 +225,13 @@ func runPRComment(cmd *cobra.Command, args []string) error {
 	project, repo, prID, rest, err := parsePRArgs(args)
 	if err != nil {
 		return err
+	}
+
+	if editID, _ := cmd.Flags().GetInt("edit"); editID != 0 {
+		return runPRCommentEdit(cmd, project, repo, prID, editID, rest)
+	}
+	if deleteID, _ := cmd.Flags().GetInt("delete"); deleteID != 0 {
+		return runPRCommentDelete(cmd, project, repo, prID, deleteID, rest)
 	}
 
 	batchFile, _ := cmd.Flags().GetString("batch")
@@ -274,6 +285,77 @@ func runPRComment(cmd *cobra.Command, args []string) error {
 		return json.NewEncoder(os.Stdout).Encode(posted)
 	}
 
+	return nil
+}
+
+// lifecycleFlagConflict reports the first anchor/review flag that makes no
+// sense when editing or deleting an existing comment.
+func lifecycleFlagConflict(cmd *cobra.Command, action string, extra ...string) error {
+	conflicting := append([]string{"file", "line", "side", "reply", "blocker", "pending", "batch", "dry-run", "line-type", "file-type"}, extra...)
+	for _, flag := range conflicting {
+		if cmd.Flags().Changed(flag) {
+			return fmt.Errorf("--%s cannot be combined with --%s: %s targets an existing comment", flag, action, action)
+		}
+	}
+	return nil
+}
+
+func runPRCommentEdit(cmd *cobra.Command, project, repo string, prID, commentID int, positionalText string) error {
+	ctx := cmd.Context()
+
+	if err := lifecycleFlagConflict(cmd, "edit", "delete"); err != nil {
+		return err
+	}
+	body, err := resolveCommentBody(cmd, positionalText)
+	if err != nil {
+		return err
+	}
+
+	client, err := getClient()
+	if err != nil {
+		return err
+	}
+
+	current, err := client.GetPullRequestComment(ctx, project, repo, prID, commentID)
+	if err != nil {
+		return fmt.Errorf("fetching comment %d: %w", commentID, err)
+	}
+	updated, err := client.UpdatePullRequestComment(ctx, project, repo, prID, commentID, current.Version, body)
+	if err != nil {
+		return fmt.Errorf("updating comment %d: %w", commentID, err)
+	}
+
+	if jsonOutput, _ := cmd.Flags().GetBool("json"); jsonOutput {
+		return json.NewEncoder(os.Stdout).Encode(updated)
+	}
+	fmt.Printf("✓ Updated comment %d (v%d -> v%d)\n", updated.ID, current.Version, updated.Version)
+	return nil
+}
+
+func runPRCommentDelete(cmd *cobra.Command, project, repo string, prID, commentID int, positionalText string) error {
+	ctx := cmd.Context()
+
+	if err := lifecycleFlagConflict(cmd, "delete", "body", "body-file", "edit"); err != nil {
+		return err
+	}
+	if positionalText != "" {
+		return errors.New("--delete takes no comment text")
+	}
+
+	client, err := getClient()
+	if err != nil {
+		return err
+	}
+
+	current, err := client.GetPullRequestComment(ctx, project, repo, prID, commentID)
+	if err != nil {
+		return fmt.Errorf("fetching comment %d: %w", commentID, err)
+	}
+	if err := client.DeletePullRequestComment(ctx, project, repo, prID, commentID, current.Version); err != nil {
+		return fmt.Errorf("deleting comment %d: %w", commentID, err)
+	}
+
+	fmt.Printf("✓ Deleted comment %d\n", commentID)
 	return nil
 }
 
@@ -715,6 +797,8 @@ func init() {
 	prCommentCmd.Flags().Bool("json", false, "Output created comments as JSON")
 	prCommentCmd.Flags().String("line-type", "", "Override the resolved line type (ADDED, REMOVED, CONTEXT)")
 	prCommentCmd.Flags().String("file-type", "", "Override the resolved file side (TO, FROM)")
+	prCommentCmd.Flags().Int("edit", 0, "Replace the text of an existing comment ID")
+	prCommentCmd.Flags().Int("delete", 0, "Delete an existing comment ID")
 
 	prCommentsCmd.Flags().StringP("file", "f", "", "Only show comments anchored to paths containing this string")
 	prCommentsCmd.Flags().Int("limit", cmdutil.DefaultActivityLimit, "Maximum number of activities to scan")

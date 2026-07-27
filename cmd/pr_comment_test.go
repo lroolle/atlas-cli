@@ -315,3 +315,23 @@ func TestDescribeTarget(t *testing.T) {
 		})
 	}
 }
+
+func TestLifecycleFlagConflict(t *testing.T) {
+	cmd := prCommentCmd
+	t.Cleanup(func() {
+		_ = cmd.Flags().Set("file", "")
+		cmd.Flags().Lookup("file").Changed = false
+	})
+
+	if err := lifecycleFlagConflict(cmd, "edit", "delete"); err != nil {
+		t.Fatalf("no flags set, got error: %v", err)
+	}
+
+	if err := cmd.Flags().Set("file", "src/app.py"); err != nil {
+		t.Fatalf("setting flag: %v", err)
+	}
+	err := lifecycleFlagConflict(cmd, "edit", "delete")
+	if err == nil || !strings.Contains(err.Error(), "--file cannot be combined with --edit") {
+		t.Fatalf("expected --file/--edit conflict, got: %v", err)
+	}
+}
