@@ -543,12 +543,25 @@ worth guessing against a live team PR.
 
 ---
 
+## Comment Lifecycle (2026-07-27)
+
+`atl pr comment --edit <id>` and `--delete <id>` close the loop opened by
+`--pending`: agent-drafted review comments can now be corrected or withdrawn
+without the web UI. Both fetch the comment first for its `version`
+(optimistic locking; the server answers 409 on a stale version, and delete
+409s on comments with replies). Verified live against a pending review
+comment (v0 -> v1 edit).
+
+| Date | Decision | Rationale |
+|------|----------|-----------|
+| 2026-07-27 | Flags on `pr comment`, not a subcommand | `comment edit` would collide with the positional text argument |
+| 2026-07-27 | Edit replaces text only | Severity/state changes are separate concerns; smallest correct surface |
+
 ## Next Steps
 
 1. Add `page delete` command with confirmation
 2. Add `cmdutil.Confirm()` and spinner helpers
-3. Comment lifecycle: edit/delete (`PUT/DELETE .../comments/{id}`, needs version)
-4. Publish pending review (`PUT .../review`) once the payload is confirmed
+3. Publish pending review (`PUT .../review`) once the payload is confirmed
 5. Add `pr watch`/`unwatch` (low priority)
 6. Add `pr auto-merge` settings (low priority)
 7. Consider restructure after more commands exist

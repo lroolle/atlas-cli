@@ -135,3 +135,45 @@ func (c *BitbucketClient) DiscardPendingReview(ctx context.Context, project, rep
 	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests/%d/review", project, repo, prID)
 	return c.Delete(ctx, path)
 }
+
+// GetPullRequestComment returns a single comment, including the version
+// required by update and delete.
+func (c *BitbucketClient) GetPullRequestComment(ctx context.Context, project, repo string, prID, commentID int) (*Comment, error) {
+	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests/%d/comments/%d", project, repo, prID, commentID)
+
+	var comment Comment
+	if err := c.Get(ctx, path, nil, &comment); err != nil {
+		return nil, err
+	}
+
+	return &comment, nil
+}
+
+// UpdatePullRequestComment replaces a comment's text. The version comes from
+// the current comment (optimistic locking); on a version conflict the server
+// answers 409.
+func (c *BitbucketClient) UpdatePullRequestComment(ctx context.Context, project, repo string, prID, commentID, version int, text string) (*Comment, error) {
+	if text == "" {
+		return nil, fmt.Errorf("comment text required")
+	}
+
+	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests/%d/comments/%d", project, repo, prID, commentID)
+	body := struct {
+		Text    string `json:"text"`
+		Version int    `json:"version"`
+	}{Text: text, Version: version}
+
+	var comment Comment
+	if err := c.Put(ctx, path, body, &comment); err != nil {
+		return nil, err
+	}
+
+	return &comment, nil
+}
+
+// DeletePullRequestComment removes a comment at the given version. Comments
+// with replies cannot be deleted; the server answers 409.
+func (c *BitbucketClient) DeletePullRequestComment(ctx context.Context, project, repo string, prID, commentID, version int) error {
+	path := fmt.Sprintf("/rest/api/1.0/projects/%s/repos/%s/pull-requests/%d/comments/%d?version=%d", project, repo, prID, commentID, version)
+	return c.Delete(ctx, path)
+}
