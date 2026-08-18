@@ -208,5 +208,8 @@ cause HTTP 400. Use CDATA in storage format to protect special chars:
 
 Bare URLs are NOT auto-linked -- always use `<a href="...">text</a>`.
 
+PlantUML: embed the source with the native `plantuml` macro (Confluence
+auto-renders it) -- never pre-render PNGs. See `references/confluence-guidelines.md`.
+
 Read `references/confluence-guidelines.md` for full layout patterns, panel macros,
 tables, and known bugs before creating or editing pages.
