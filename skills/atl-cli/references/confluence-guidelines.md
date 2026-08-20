@@ -86,6 +86,34 @@ which cannot handle CDATA in `-f markdown.md` input -- it's correct in raw stora
 Supported `language` values: bash, python, go, java, sql, javascript, html, xml,
 json, yaml, toml, text, none.
 
+### PlantUML diagrams -- native macro, no pre-rendering
+
+Confluence Server instances with the PlantUML macro installed render diagrams
+server-side. Embed the source inline; do NOT pre-render to PNG and attach:
+
+```html
+<ac:structured-macro ac:name="plantuml" ac:schema-version="1">
+  <ac:parameter ac:name="align">center</ac:parameter>
+  <ac:parameter ac:name="title">Figure 1 -- Component architecture</ac:parameter>
+  <ac:plain-text-body><![CDATA[@startuml
+component "worker" as W
+database "task_store" as T
+W --> T : complete signal
+@enduml]]></ac:plain-text-body>
+</ac:structured-macro>
+```
+
+Rules:
+
+- Body is the raw PlantUML source inside CDATA (safe for `&`, `<`, `>`).
+- Optional params: `align` (left/center/right), `title` (caption).
+- Keep it plain `@startuml`/`@enduml` -- avoid `!theme` directives, the
+  server-side renderer may not support them.
+- Verify rendering: `atl page view <id> --format html` output should contain
+  `plantuml-svg`; a broken macro renders as "Unknown macro" text instead.
+- If a page already has pre-rendered PNG attachments, switch to the macro and
+  delete the attachments (`DELETE /rest/api/content/{attachmentId}`).
+
 ### Panels (info, warning, note, tip)
 
 ```html
